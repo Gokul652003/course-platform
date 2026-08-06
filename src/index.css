@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-slate-950 text-slate-200 antialiased;
+}
+
+.prose-mod {
+  @apply text-[15px] leading-7 text-slate-300;
+}
+
+.prose-mod h2 {
+  @apply mb-3 mt-8 border-b border-slate-800 pb-2 text-xl font-bold text-white first:mt-0;
+}
+
+.prose-mod h3 {
+  @apply mb-2 mt-6 text-base font-semibold text-white;
+}
+
+.prose-mod p {
+  @apply my-3;
+}
+
+.prose-mod ul {
+  @apply my-3 list-disc space-y-1.5 pl-5;
+}
+
+.prose-mod ol {
+  @apply my-3 list-decimal space-y-1.5 pl-5;
+}
+
+.prose-mod li::marker {
+  @apply text-emerald-400;
+}
+
+.prose-mod strong {
+  @apply font-semibold text-white;
+}
+
+.prose-mod em {
+  @apply text-slate-200;
+}
+
+.prose-mod pre {
+  @apply my-4 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-[13px] leading-6 text-emerald-200;
+}
+
+.prose-mod code {
+  @apply rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[0.85em] text-cyan-300;
+}
+
+.prose-mod pre code {
+  @apply bg-transparent p-0 text-emerald-200;
+}
+
+.prose-mod blockquote {
+  @apply my-4 rounded-r-xl border-l-4 border-emerald-500 bg-emerald-500/10 px-4 py-3 text-slate-200;
+}
+
+.prose-mod blockquote p {
+  @apply my-0;
+}
+
+.prose-mod :not(pre) > code {
+  @apply text-cyan-300;
+}
