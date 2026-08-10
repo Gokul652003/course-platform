@@ -1,21 +1,31 @@
 import { useEffect, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import { ArrowLeft, ArrowRight, Check, CheckCircle2 } from "lucide-react"
-import { lessonDuration } from "../data/courseData"
+import { lessonDuration } from "../data/courseData.ts"
+import type { Module } from "../types.ts"
 
-export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone, onToggleDone }) {
+interface LessonPageProps {
+  mod: Module
+  lessonIndex: number
+  onSelect: (index: number) => void
+  onBack: () => void
+  isDone: (index: number) => boolean
+  onToggleDone: (index: number) => void
+}
+
+export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone, onToggleDone }: LessonPageProps) {
   const lesson = mod.lessons[lessonIndex]
   const total = mod.lessons.length
   const next = lessonIndex + 1 < total
   const done = isDone(lessonIndex)
-  const topRef = useRef(null)
+  const topRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     topRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
   }, [lessonIndex])
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "ArrowRight" && next) onSelect(lessonIndex + 1)
       if (e.key === "ArrowLeft" && lessonIndex > 0) onSelect(lessonIndex - 1)
     }
