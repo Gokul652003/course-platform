@@ -1,6 +1,12 @@
-import { modules, statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData"
+import { modules, statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData.ts"
+import type { StatusMeta } from "../data/courseData.ts"
 
-export default function Sidebar({ activeId, onSelect }) {
+interface SidebarProps {
+  activeId: number
+  onSelect: (id: number) => void
+}
+
+export default function Sidebar({ activeId, onSelect }: SidebarProps) {
   const totalDone = modules.reduce((acc, m) => acc + lessonsDoneCount(m), 0)
   const totalLessons = modules.reduce((acc, m) => acc + lessonCount(m), 0)
   const pct = Math.round((totalDone / totalLessons) * 100)
@@ -26,7 +32,7 @@ export default function Sidebar({ activeId, onSelect }) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {modules.map((m) => {
-            const meta = statusMeta[m.status]
+            const meta: StatusMeta = statusMeta[m.status]
             const active = m.id === activeId
             const total = lessonCount(m)
             const done = lessonsDoneCount(m)
