@@ -1,4 +1,6 @@
-export const module1 = {
+import type { Module } from "../types"
+
+export const module1: Module = {
   id: 1,
   title: "Linux Fundamentals",
   status: "complete",
