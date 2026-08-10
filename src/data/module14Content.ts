@@ -423,5 +423,279 @@ sudo journalctl --vacuum-size=500M
 - \`journalctl\` filters by time, unit, priority, and boot.
 - \`--vacuum-size\` trims the journal on demand.`,
     },
+    {
+      name: "Targets & bootup",
+      minutes: 11,
+      intro:
+        "Understand runlevels as targets and how systemd decides which units start at boot.",
+      content: `## Targets & bootup
+
+Old init systems had runlevels 0-6. systemd replaces them with **targets** — named sets of units — and boot walks a chain of them.
+
+### The boot chain
+
+\`\`\`
+kernel --> systemd (PID 1)
+           --> basic.target
+           --> sysinit.target
+           --> multi-user.target
+           --> graphical.target (GUI)
+\`\`\`
+
+\`\`\`bash
+systemctl list-dependencies multi-user.target
+\`\`\`
+
+### Default target
+
+\`\`\`bash
+systemctl get-default
+sudo systemctl set-default multi-user.target   # headless server
+sudo systemctl isolate graphical.target        # switch now
+\`\`\`
+
+### Common targets
+
+| Target         | Purpose                         |
+|----------------|---------------------------------|
+| \`emergency\`     | minimal shell, fix broken boot |
+| \`rescue\`       | one user + core services        |
+| \`multi-user\`    | normal multi-user, no GUI       |
+| \`graphical\`     | multi-user + display manager    |
+
+### Why WantedBy matters
+
+A unit's \`[Install]\` section names the target that pulls it in:
+
+\`\`\`ini
+[Install]
+WantedBy=multi-user.target
+\`\`\`
+
+\`systemctl enable\` symlinks the unit into that target's \`wants\` directory — visible as \`/etc/systemd/system/multi-user.target.wants/\`.
+
+### Boot health
+
+\`\`\`bash
+systemd-analyze
+systemd-analyze critical-chain
+systemctl --failed
+\`\`\`
+
+> **Key idea:** "Runlevel 3" ≈ \`multi-user.target\`; "runlevel 5" ≈ \`graphical.target\`. Enabling a unit just registers it under a target — boot "wants" it to start.
+
+### Key recap
+
+- Targets replace runlevels; boot walks a target chain.
+- \`get-default\`/\`set-default\` control the boot target.
+- \`WantedBy=multi-user.target\` is how services get enabled.
+- \`systemd-analyze\` and \`systemctl --failed\` expose boot problems.`,
+    },
+    {
+      name: "Resource control",
+      minutes: 11,
+      intro:
+        "Give every service a CPU, memory, and I/O budget with systemd + cgroups.",
+      content: `## Resource control
+
+Every systemd service runs inside a **cgroup**. That gives you real quotas: this service may use 50% CPU, 512 MB RAM, whatever you decide.
+
+### Set limits in a unit
+
+\`\`\`ini
+[Service]
+CPUQuota=50%
+MemoryMax=1G
+MemoryHigh=768M
+TasksMax=512
+IOWeight=500
+\`\`\`
+
+- \`MemoryMax\` hard cap — service is OOM-killed above this
+- \`MemoryHigh\` soft throttle point
+- \`CPUQuota\` percent of one core (100% = one core)
+- \`TasksMax\` cap on spawned threads/processes
+
+### Live tooling
+
+\`\`\`bash
+systemd-cgtop
+systemctl status myapp
+\`\`\`
+
+\`systemd-cgtop\` is \`htop\` for cgroups.
+
+### See the current usage
+
+\`\`\`bash
+systemctl show myapp -p MemoryCurrent -p CPUUsageNSec
+\`\`\`
+
+### Slicing a hierarchy
+
+\`\`\`ini
+[Service]
+Slice=system-foo.slice
+\`\`\`
+
+Slices organize services into groups — useful for "all this project's microservices, shared budget":
+
+\`\`\`ini
+# /etc/systemd/system/myproj.slice
+[Slice]
+MemoryMax=4G
+CPUQuota=200%
+\`\`\`
+
+> **Pro tip:** Start with \`MemoryHigh\` (soft) before \`MemoryMax\` (hard). A service that gets killed is worse than one that gets throttled; ratchet down only after you see the steady-state usage.
+
+### Key recap
+
+- systemd allocates limits through cgroups per service.
+- \`CPUQuota\`, \`MemoryMax\`, \`TasksMax\`, \`IOWeight\` are the dials.
+- \`systemd-cgtop\` shows real usage per unit.
+- Slices group services so budgets apply across them.`,
+    },
+    {
+      name: "systemd-networkd",
+      minutes: 10,
+      intro:
+        "Manage interfaces, addresses, and DHCP declaratively without NetworkManager.",
+      content: `## systemd-networkd
+
+systemd can own the network too — a lightweight, declarative alternative to NetworkManager for servers.
+
+### Enable it
+
+\`\`\`bash
+sudo systemctl enable --now systemd-networkd
+\`\`\`
+
+Disable NetworkManager to avoid competing \`\`\`systemctl disable NetworkManager\`\`\`.
+
+### DHCP on the first interface
+
+\`/etc/systemd/network/10-eth0.network\`:
+
+\`\`\`ini
+[Match]
+Name=eth0
+
+[Network]
+DHCP=yes
+
+[DHCP]
+UseDNS=yes
+\`\`\`
+
+### Static address
+
+\`/etc/systemd/network/10-lan.network\`:
+
+\`\`\`ini
+[Match]
+Name=enp1s0
+
+[Address]
+Address=192.168.1.10/24
+
+[Route]
+Gateway=192.168.1.1
+DNS=1.1.1.1
+
+[Network]
+DNS=8.8.8.8
+\`\`\`
+
+### Apply changes
+
+\`\`\`bash
+sudo systemctl restart systemd-networkd
+ip addr show eth0
+resolvectl status
+\`\`\`
+
+### Bridging for VMs
+
+\`/etc/systemd/network/20-bridge.netdev\`:
+
+\`\`\`ini
+[NetDev]
+Name=br0
+Kind=bridge
+\`\`\`
+
+> **Key idea:** networkd pairs neatly with systemd-resolved for DNS. On a single-service server, three small .network files replace the whole GUI network stack.
+
+### Key recap
+
+- \`.network\` files match interfaces and set addresses/DHCP.
+- \`systemctl restart systemd-networkd\` applies changes.
+- \`resolvectl\` reports the DNS state from systemd-resolved.
+- Bridges are declared with \`.netdev\` files.`,
+    },
+    {
+      name: "Debugging systemd",
+      minutes: 12,
+      intro:
+        "Systematically diagnose services that flake, hang, or refuse to start.",
+      content: `## Debugging systemd
+
+A service that won't start usually falls into one of four buckets: config not reloaded, permission issue, dependency problem, or the process crashing immediately. Here's the method.
+
+### 1. See what actually happened
+
+\`\`\`bash
+systemctl status myapp --no-pager -l
+journalctl -u myapp --since "10 min ago" --no-pager
+\`\`\`
+
+\`\`\`bash
+systemctl show myapp -p ExecMainStatus,Result
+\`\`\`
+
+### 2. Confirm the config was loaded
+
+Unit files change constantly — check the file you *think* you edited was the one loaded:
+
+\`\`\`bash
+systemctl cat myapp
+systemctl show myapp -p FragmentPath
+\`\`\`
+
+### 3. Is it a dependency?
+
+\`\`\`bash
+systemctl list-dependencies myapp
+systemctl --state=failed
+\`\`\`
+
+### 4. Crash-on-start
+
+\`\`\`bash
+systemctl start myapp; sleep 2; systemctl status myapp
+grep -i "start request repeated too quickly" /var/log/syslog
+\`\`\`
+
+Rapid restarts hit the rate-limiter; \`StartLimitBurst\`/\`StartLimitIntervalSec\` control it.
+
+### 5. It *thinks* it's active but isn't
+
+\`\`\`bash
+systemctl show myapp -p ActiveState,SubState,MainPID
+ps -p $(systemctl show myapp -p MainPID --value)
+\`\`\`
+
+Type=ping checks rely on the pid file: \`PIDFile=\` pointing nowhere gives a lying "active (running)".
+
+> **Pro tip:** Start at \`journalctl -u myapp -n 50\`. The moment something fails, the reason is usually in the last twenty lines — don't debug by guessing.
+
+### Key recap
+
+- \`status\`, \`journalctl -u\`, \`show -p\` reveal the failure.
+- \`systemctl cat\` confirms which unit file is loaded.
+- Crash loops trip \`StartLimit\` — raise the burst window if intentional.
+- A mismatch of \`Type=\`/\`PIDFile=\` makes active-but-dead services.`,
+    },
   ],
 }
