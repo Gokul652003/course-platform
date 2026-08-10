@@ -279,5 +279,296 @@ sudo iptables -L -n | grep 192.0.2.10
 - Combine with key-only SSH: no passwords means nothing to guess.
 - \`fail2ban-client status\` verifies everything is watching.`,
     },
+    {
+      name: "auditd",
+      minutes: 10,
+      intro:
+        "Log every file access and system call to know exactly who did what, when.",
+      content: `## auditd
+
+The Linux Audit daemon records system events — who read a file, who ran a command, what authentication failed — and writes them to \`/var/log/audit/audit.log\`.
+
+### Install and start
+
+\`\`\`bash
+sudo apt install -y auditd
+sudo systemctl enable --now auditd
+sudo auditctl -s
+\`\`\`
+
+### Watch a file
+
+\`\`\`bash
+sudo auditctl -w /etc/ssh/sshd_config -p wa -k sshd_config
+\`\`\`
+
+- \`-w\` watch path, \`-p wa\` audit write+attribute changes, \`-k\` adds a searchable key
+
+### Watch a directory recursively
+
+\`\`\`bash
+sudo auditctl -w /etc/nginx/ -p rwxa -k nginx
+\`\`\`
+
+### Search the log
+
+\`\`\`bash
+sudo ausearch -k sshd_config
+sudo ausearch -m USER_LOGIN -ts today
+sudo auvirt --summary
+\`\`\`
+
+### Make watches permanent
+
+Add them to \`/etc/audit/rules.d/audit.rules\` and restart:
+
+\`\`\`bash
+sudo systemctl restart auditd
+sudo auditctl -l
+\`\`\`
+
+> **Key idea:** auditd answers the "who, what, when" questions. It's how you prove a config was edited after the fact — pair watches with a backup and you can always diff what changed.
+
+### Key recap
+
+- \`auditctl -w path -p wa -k key\` watches files and dirs.
+- \`ausearch\` queries the audit log by key, event type, or time.
+- Persist rules in \`/etc/audit/rules.d/\`.
+- It records writes, reads, and attribute changes for forensic review.`,
+    },
+    {
+      name: "GPG & encryption",
+      minutes: 12,
+      intro:
+        "Encrypt files, folders, and messages, and verify downloads with digital signatures.",
+      content: `## GPG & encryption
+
+GPG (GNU Privacy Guard) brings public-key cryptography to your terminal: encrypt files for someone, sign messages, and verify that downloaded software is genuine.
+
+### Generate a key pair
+
+\`\`\`bash
+gpg --full-generate-key
+gpg --list-keys
+\`\`\`
+
+You now own a **private key** (kept in \`~/.gnupg/\`) and a **public key** you can share.
+
+### Encrypt a file for someone
+
+\`\`\`bash
+gpg --encrypt --recipient alice@example.com secret.txt
+# creates secret.txt.gpg — unreadable without Alice's private key
+\`\`\`
+
+### Decrypt
+
+\`\`\`bash
+gpg --decrypt secret.txt.gpg
+gpg --decrypt secret.txt.gpg > secret.txt
+\`\`\`
+
+### Sign a file to prove it's from you
+
+\`\`\`bash
+gpg --clearsign message.txt
+gpg --verify message.txt.asc
+\`\`\`
+
+### Verify software downloads
+
+Projects publish a \`.asc\` signature. Fetch the author's public key, then verify it matches your download:
+
+\`\`\`bash
+gpg --verify file.tar.gz.asc file.tar.gz
+\`\`\`
+
+> **Warning:** Encrypting is easy; losing the private key is permanent. Back up \`~/.gnupg/\` and remember your passphrase — there is no recovery mechanism.
+
+### Key recap
+
+- \`gpg --full-generate-key\` creates the key pair.
+- \`--encrypt\`/\`--decrypt\` scramble and restore files.
+- \`--sign\`/\`--verify\` prove authorship and integrity.
+- Public keys only encrypt and verify; private keys decrypt and sign.`,
+    },
+    {
+      name: "Hashing & integrity",
+      minutes: 10,
+      intro:
+        "Use hashes to fingerprint files and AIDE to catch unauthorized changes.",
+      content: `## Hashing & integrity
+
+A hash is a fixed-length fingerprint of a file. Change one byte and the fingerprint changes completely — which makes hashes perfect for detecting tampering.
+
+### Hash a file
+
+\`\`\`bash
+sha256sum backup.iso
+md5sum app.tar.gz
+\`\`\`
+
+Example output:
+
+\`\`\`
+e3b0c44298fc1c149afbf4c8996fb...  backup.iso
+\`\`\`
+
+### Verify a download
+
+Compare the hash the maintainer published with yours:
+
+\`\`\`bash
+echo "e3b0c442...  backup.iso" | sha256sum -c
+\`\`\`
+
+### Mass-monitor with AIDE
+
+AIDE snapshots your filesystem, then reports any deviation:
+
+\`\`\`bash
+sudo apt install -y aide
+sudo aideinit
+sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+\`\`\`
+
+### Run a check
+
+\`\`\`bash
+sudo aide.wrapper --check
+\`\`\`
+
+A fresh report shows no changes. Later runs flag anything that was added, removed, or modified — substitute it for a nightly expectation.
+
+> **Key idea:** A hash tells you nothing by itself; it's the *comparison* that matters. Keep the trusted fingerprint somewhere safe (publisher's site, previous snapshot), then spot the difference.
+
+### Key recap
+
+- \`sha256sum\`/\`md5sum\` produce file fingerprints.
+- Hash-and-compare catches corrupted or tampered downloads.
+- AIDE keeps a database of the filesystem and flags changes.
+- Schedule AIDE nightly and review the report for surprises.`,
+    },
+    {
+      name: "Network hardening",
+      minutes: 10,
+      intro:
+        "Lock down the network surface: listen addresses, ports, and kernel protections.",
+      content: `## Network hardening
+
+Attackers can only reach what's exposed. Shrinking your listening surface is the cheapest security there is.
+
+### See everything open
+
+\`\`\`bash
+ss -tulpn
+\`\`\`
+
+Only SSH (22) and web (80/443) should answer on the public interface.
+
+### Bind to localhost, not 0.0.0.0
+
+Services with no internet purpose should listen on 127.0.0.1 only:
+
+\`\`\`ini
+# e.g. in /etc/postgresql/*/main/postgresql.conf
+listen_addresses = '127.0.0.1'
+\`\`\`
+
+### Use a host firewall
+
+\`\`\`bash
+sudo ufw default deny incoming
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+\`\`\`
+
+### Kernel network protections
+
+\`\`\`ini
+# /etc/sysctl.d/99-netsec.conf
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.tcp_syncookies = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+\`\`\`
+
+Apply with \`sudo sysctl -p\`.
+
+### Disable unused services
+
+\`\`\`bash
+sudo systemctl list-unit-files --state=enabled
+sudo systemctl disable --now cups-browsed telnet.socket
+\`\`\`
+
+> **Pro tip:** Do an audit once a week: \`ss -tulpn\`, \`sudo ufw status\`, and \`systemctl list-unit-files --state=enabled\`. Exposed ports and enabled-but-unused daemons drift back in over time.
+
+### Key recap
+
+- \`ss -tulpn\` reveals every listening socket.
+- Bind internal services to 127.0.0.1 and firewall the rest.
+- Kernel sysctls block spoofing and broadcast abuse.
+- Prune enabled daemons you don't use.`,
+    },
+    {
+      name: "Security auditing",
+      minutes: 11,
+      intro:
+        "Automate the hunt for weak users, open ports, and outdated packages.",
+      content: `## Security auditing
+
+Hardening is one-off; auditing is the discipline that keeps it that way. Here are the checks you can run today.
+
+### Outdated packages
+
+\`\`\`bash
+sudo apt update && sudo apt list --upgradable
+sudo unattended-upgrade --dry-run
+\`\`\`
+
+### World-writable and suid files
+
+\`\`\`bash
+find / -xdev -perm -002 -type f -exec ls -la {} \\; 2>/dev/null
+find / -xdev -perm -4000 -exec ls -la {} \\; 2>/dev/null
+\`\`\`
+
+SUID binaries run with the owner's privileges — know every one that exists.
+
+### Users with empty passwords
+
+\`\`\`bash
+sudo passwd -S "$(whoami)"
+awk -F: '($2 == "" ) {print $1}' /etc/shadow
+sudo awk -F: '($3 == 0) {print $1}' /etc/passwd
+\`\`\`
+
+### Open ports from outside
+
+\`\`\`bash
+nmap -sV YOUR_SERVER_IP
+\`\`\`
+
+### Password policy
+
+\`\`\`bash
+sudo apt install -y libpam-pwquality
+sudo nano /etc/pam.d/common-password
+\`\`\`
+
+Set \`minlen=12 minclass=3\` to require length and mixed character classes.
+
+> **Key idea:** An audit is a checklist you automate and review. Turn each check into a script, run it weekly, and look at the diff. The boring regularity is the point.
+
+### Key recap
+
+- Check for unpatched, upgradable packages regularly.
+- Audit SUID binaries and world-writable files.
+- No empty passwords; no extra UID-0 accounts.
+- Use nmap from outside to confirm the firewall.
+- Enforce strong passwords via libpam-pwquality.`,
+    },
   ],
 }
