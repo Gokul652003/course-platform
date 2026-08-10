@@ -1,12 +1,12 @@
 import { useState } from "react"
 import { GraduationCap, ArrowLeft, Terminal } from "lucide-react"
-import Header from "./Header"
-import Sidebar from "./Sidebar"
-import ModuleCard from "./ModuleCard"
-import LessonPage from "./LessonPage"
-import { modules } from "../data/courseData"
+import Header from "./Header.tsx"
+import Sidebar from "./Sidebar.tsx"
+import ModuleCard from "./ModuleCard.tsx"
+import LessonPage from "./LessonPage.tsx"
+import { modules } from "../data/courseData.ts"
 
-function MobileNav({ activeId, onSelect }) {
+function MobileNav({ activeId, onSelect }: { activeId: number; onSelect: (id: number) => void }) {
   return (
     <div className="mb-6 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:hidden">
       {modules.map((m) => (
@@ -26,12 +26,12 @@ function MobileNav({ activeId, onSelect }) {
   )
 }
 
-export default function CourseDashboard({ onBack }) {
+export default function CourseDashboard({ onBack }: { onBack: () => void }) {
   const [activeId, setActiveId] = useState(1)
-  const [lessonModuleId, setLessonModuleId] = useState(null)
+  const [lessonModuleId, setLessonModuleId] = useState<number | null>(null)
   const [lessonIndex, setLessonIndex] = useState(0)
-  const [completed, setCompleted] = useState(() => {
-    const done = new Set()
+  const [completed, setCompleted] = useState<Set<string>>(() => {
+    const done = new Set<string>()
     modules.forEach((m) => {
       if (m.status === "complete") {
         m.lessons.forEach((l, i) => {
@@ -43,14 +43,15 @@ export default function CourseDashboard({ onBack }) {
   })
 
   const activeModule = modules.find((m) => m.id === activeId)
-  const openLesson = (modId, index) => {
+  const openLesson = (modId: number, index: number) => {
     setLessonModuleId(modId)
     setLessonIndex(index)
   }
 
   const lessonMod = lessonModuleId !== null ? modules.find((m) => m.id === lessonModuleId) : null
 
-  const toggleDone = (index) => {
+  const toggleDone = (index: number) => {
+    if (!lessonMod) return
     const key = `${lessonMod.id}:${index}`
     setCompleted((prev) => {
       const next = new Set(prev)
@@ -60,9 +61,9 @@ export default function CourseDashboard({ onBack }) {
     })
   }
 
-  const isLessonDone = (modId, index) => completed.has(`${modId}:${index}`)
+  const isLessonDone = (modId: number, index: number) => completed.has(`${modId}:${index}`)
 
-  const handleModuleSelect = (id) => {
+  const handleModuleSelect = (id: number) => {
     setActiveId(id)
     setLessonModuleId(null)
   }
