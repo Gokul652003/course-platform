@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import {
   GraduationCap,
   ArrowRight,
@@ -7,7 +8,7 @@ import {
   Terminal,
   Sparkles,
 } from "lucide-react"
-import { course } from "../data/courseData"
+import { course } from "../data/courseData.ts"
 
 function LinuxGlyph() {
   return (
@@ -17,7 +18,18 @@ function LinuxGlyph() {
   )
 }
 
-const courses = [
+interface CourseCard {
+  id: string
+  title: string
+  status?: string
+  description: string
+  icon: ReactNode
+  highlight: boolean
+  tags: string[]
+  comingSoon?: boolean
+}
+
+const courses: CourseCard[] = [
   {
     ...course,
     id: "linux",
@@ -49,7 +61,7 @@ const courses = [
   },
 ]
 
-export default function HomePage({ onOpenCourse }) {
+export default function HomePage({ onOpenCourse }: { onOpenCourse: (id: string) => void }) {
   return (
     <div className="min-h-screen">
       <div className="relative overflow-hidden">
