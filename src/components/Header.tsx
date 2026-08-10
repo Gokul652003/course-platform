@@ -1,7 +1,8 @@
 import { Terminal, Layers, BookOpen, Clock, Signal } from "lucide-react"
-import { course } from "../data/courseData"
+import type { LucideIcon } from "lucide-react"
+import { course } from "../data/courseData.ts"
 
-function Stat({ label, value, icon: Icon }) {
+function Stat({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3">
       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-emerald-400">
