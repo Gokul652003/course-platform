@@ -10,20 +10,15 @@ import { module9 } from "./module9Content"
 import { module10 } from "./module10Content"
 import { module11 } from "./module11Content"
 import { module12 } from "./module12Content"
+import { module13 } from "./module13Content"
+import { module14 } from "./module14Content"
+import { module15 } from "./module15Content"
+import { module16 } from "./module16Content"
 import { CheckCircle2, Clock, BookOpen } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import type { Course, Lesson, Module } from "../types"
 
-export const course = {
-  title: "Complete Linux Course",
-  tagline: "From absolute beginner to developer-ready Linux",
-  description:
-    "A hands-on, milestone-based journey through Linux — covering fundamentals, system administration, and developer/DevOps workflows.",
-  stats: {
-    modules: 12,
-    level: "Beginner → Advanced",
-  },
-}
-
-export const modules = [
+export const modules: Module[] = [
   module1,
   module2,
   module3,
@@ -36,13 +31,17 @@ export const modules = [
   module10,
   module11,
   module12,
+  module13,
+  module14,
+  module15,
+  module16,
 ]
 
-export function lessonCount(mod) {
+export function lessonCount(mod: Module): number {
   return mod.lessons.length
 }
 
-export function lessonsDoneCount(mod) {
+export function lessonsDoneCount(mod: Module): number {
   if (mod.status === "complete") return mod.lessons.length
   if (mod.status === "in_progress") {
     const done = mod.lessonsDone ?? mod.lessons.filter((l) => l.done === true).length
@@ -51,20 +50,39 @@ export function lessonsDoneCount(mod) {
   return 0
 }
 
-export function hasLessonContent(mod) {
+export function hasLessonContent(mod: Module): boolean {
   return mod.lessons.some((l) => typeof l === "object" && l.content)
 }
 
-export function lessonDuration(l) {
+export function lessonDuration(l: Lesson): number {
   return l.minutes ?? 8
 }
 
-course.stats.lessons = modules.reduce((acc, m) => acc + lessonCount(m), 0)
-course.stats.hours = Math.round(
-  modules.reduce((acc, m) => acc + m.lessons.reduce((a, l) => a + lessonDuration(l), 0), 0) / 60,
-)
+export const course: Course = {
+  title: "Complete Linux Course",
+  tagline: "From absolute beginner to developer-ready Linux",
+  description:
+    "A hands-on, milestone-based journey through Linux — covering fundamentals, system administration, and developer/DevOps workflows.",
+  stats: {
+    modules: 16,
+    level: "Beginner → Advanced",
+    lessons: modules.reduce((acc, m) => acc + lessonCount(m), 0),
+    hours: Math.round(
+      modules.reduce((acc, m) => acc + m.lessons.reduce((a, l) => a + lessonDuration(l), 0), 0) /
+        60,
+    ),
+  },
+}
 
-export const statusMeta = {
+export interface StatusMeta {
+  label: string
+  icon: LucideIcon
+  color: "emerald" | "amber" | "slate"
+  ring: string
+  badge: string
+}
+
+export const statusMeta: Record<Module["status"], StatusMeta> = {
   complete: {
     label: "Completed",
     icon: CheckCircle2,
