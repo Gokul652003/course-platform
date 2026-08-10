@@ -210,5 +210,218 @@ LimitNOFILE=65536
 - \`ProtectSystem\`, \`PrivateTmp\`, \`NoNewPrivileges\` harden services.
 - Drop privileges with \`User=\`/\`Group=\`.`,
     },
+    {
+      name: "Timers",
+      minutes: 11,
+      intro:
+        "Replace cron with systemd timers: calendar, monotonic, and dependency-aware scheduling.",
+      content: `## Timers
+
+systemd timers are the modern cron. They offer calendar expressions, fixed intervals that respect wakeups, missed-run catch-up, and full logging.
+
+### A calendar timer (like cron)
+
+\`/etc/systemd/system/backup.timer\`:
+
+\`\`\`ini
+[Unit]
+Description=Nightly backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+\`\`\`
+
+\`Persistent=true\` runs a missed job immediately after boot instead of skipping it.
+
+### The paired service
+
+\`/etc/systemd/system/backup.service\`:
+
+\`\`\`ini
+[Unit]
+Description=Run backups
+
+[Service]
+ExecStart=/usr/local/bin/backup.sh
+\`\`\`
+
+\`\`\`bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+systemctl list-timers
+\`\`\`
+
+### Monotonic interval (after boot)
+
+\`\`\`ini
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+\`\`\`
+
+### Calendar syntax
+
+\`\`\`ini
+OnCalendar=Mon..Fri 09:00:00
+OnCalendar=*-*-1..7 00:00:00      # first week of each month
+OnCalendar=hourly
+\`\`\`
+
+### When will it fire?
+
+\`\`\`bash
+systemd-analyze calendar "Mon..Fri 09:00:00"
+\`\`\`
+
+> **Pro tip:** \`persist\` + \`OnCalendar\` is the killer feature over cron — a laptop that was off at 2:30 runs the backup the moment it wakes. Cron silently skips it.
+
+### Key recap
+
+- A timer unit pairs with a service unit of the same name.
+- \`OnCalendar\` = cron-style, \`OnBootSec\`/\`OnUnitActiveSec\` = relative.
+- \`Persistent=true\` catches up missed runs.
+- \`systemctl list-timers\` shows the next triggers.`,
+    },
+    {
+      name: "Socket activation",
+      minutes: 11,
+      intro:
+        "Start services on demand the moment a connection arrives — lazily and defensively.",
+      content: `## Socket activation
+
+systemd can own a listening port and only start the service when traffic hits it. Services stay stopped until needed, save resources, and never leak open ports.
+
+### A socket unit
+
+\`/etc/systemd/system/myapp.socket\`:
+
+\`\`\`ini
+[Unit]
+Description=myapp socket
+
+[Socket]
+ListenStream=8080
+
+[Install]
+WantedBy=sockets.target
+\`\`\`
+
+### The service accepts the socket
+
+\`/etc/systemd/system/myapp.service\`:
+
+\`\`\`ini
+[Unit]
+Description=myapp
+
+[Service]
+ExecStart=/usr/local/bin/myapp
+Type=simple
+\`\`\`
+
+\`\`\`bash
+sudo systemctl enable --now myapp.socket
+ss -tulpn | grep 8080      # socket listening, service stopped
+systemctl is-active myapp   # inactive — until someone connects
+\`\`\`
+
+### Verify demand-start
+
+\`\`\`bash
+curl http://localhost:8080
+systemctl status myapp --no-pager
+\`\`\`
+
+The first connection spawns the service; the socket passes its file descriptor to the process.
+
+### When it shines
+
+- **On-demand services** — a rarely used admin tool that costs nothing until touched
+- **Empty ports show as closed** to scanners when the service is stopped
+- **Connect on inactive** — when the socket is listening but the service isn't, systemd can decide
+
+> **Key idea:** The socket unit owns the port *before* the app exists. systemd binds the fd and hands it over, so there's never a race between "listening" and "ready".
+
+### Key recap
+
+- \`ListenStream\` in a .socket unit owns the port.
+- The service starts on first connection, lazily.
+- Enable the socket, not the service, for on-demand behavior.
+- Works perfectly with Type=simple services that accept a passed fd.`,
+    },
+    {
+      name: "Journald configuration",
+      minutes: 10,
+      intro:
+        "Persist logs, control retention, and route boot-time noise so the journal stays useful.",
+      content: `## Journald configuration
+
+By default the journal lives in memory and evaporates on reboot. A few config lines make it permanent, bounded, and searchable.
+
+### The config
+
+\`/etc/systemd/journald.conf\` (or a drop-in):
+
+\`\`\`ini
+[Journal]
+Storage=persistent          # auto | volatile | persistent | none
+SystemMaxUse=1G
+SystemMaxFileSize=50M
+MaxRetentionSec=30day
+Compress=yes
+\`\`\`
+
+Apply:
+
+\`\`\`bash
+sudo systemctl restart systemd-journald
+\`\`\`
+
+\`Storage=persistent\` logs to \`/var/log/journal/\`; \`auto\` keeps volatile unless that directory already exists.
+
+### Search the persistent journal
+
+\`\`\`bash
+journalctl --since "2 days ago"
+journalctl -u nginx -S today
+journalctl -p err -b           # everything at error level this boot
+journalctl --until "2024-01-01 00:00"
+\`\`\`
+
+### Follow and page
+
+\`\`\`bash
+journalctl -f
+journalctl -n 100
+\`\`\`
+
+### Hand the journal to rsyslog
+
+If legacy tools still read \`/var/log/NNN\`, export:
+
+\`\`\`ini
+ForwardToSyslog=yes
+\`\`\`
+
+### Confirm your storage
+
+\`\`\`bash
+journalctl --disk-usage
+sudo journalctl --vacuum-size=500M
+\`\`\`
+
+> **Pro tip:** Set \`Storage=persistent\` early — debugging a crash that happened "last boot" is impossible if the log died with it. Bounded sizes (\`SystemMaxUse\`) stop the journal from eating your disk.
+
+### Key recap
+
+- \`Storage=persistent\` survives reboots under \`/var/log/journal\`.
+- \`SystemMaxUse\` and \`MaxRetentionSec\` bound growth.
+- \`journalctl\` filters by time, unit, priority, and boot.
+- \`--vacuum-size\` trims the journal on demand.`,
+    },
   ],
 }
