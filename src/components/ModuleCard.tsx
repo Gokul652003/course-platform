@@ -1,5 +1,7 @@
-import { statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData"
+import { statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData.ts"
+import type { StatusMeta } from "../data/courseData.ts"
 import { Clock, ChevronRight, Check, Lock } from "lucide-react"
+import type { Lesson, Module, ModuleStatus } from "../types.ts"
 
 const barGradient = {
   emerald: "bg-gradient-to-r from-emerald-400 to-emerald-600",
@@ -13,9 +15,17 @@ const accentBar = {
   slate: "bg-slate-700",
 }
 
-function LessonTile({ lesson, index, status, done, onOpen }) {
+interface LessonTileProps {
+  lesson: Lesson | string
+  index: number
+  status: ModuleStatus
+  done: boolean
+  onOpen: (index: number) => void
+}
+
+function LessonTile({ lesson, index, status, done, onOpen }: LessonTileProps) {
   const isInProgress = status === "in_progress"
-  const hasContent = lesson && typeof lesson === "object" && lesson.content
+  const hasContent = lesson !== null && typeof lesson === "object" && !!lesson.content
   const pending = isInProgress && !done
   const locked = status === "upcoming"
   const name = typeof lesson === "string" ? lesson : lesson.name
@@ -55,7 +65,7 @@ function LessonTile({ lesson, index, status, done, onOpen }) {
           {name}
         </span>
         <span className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-500">
-          {hasContent ? (
+          {hasContent && typeof lesson === "object" ? (
             <>
               <span className="inline-flex items-center gap-1">
                 <Clock size={11} />
@@ -86,8 +96,14 @@ function LessonTile({ lesson, index, status, done, onOpen }) {
   )
 }
 
-export default function ModuleCard({ mod, onOpenLesson, isDone }) {
-  const meta = statusMeta[mod.status]
+interface ModuleCardProps {
+  mod: Module
+  onOpenLesson: (index: number) => void
+  isDone?: (index: number) => boolean
+}
+
+export default function ModuleCard({ mod, onOpenLesson, isDone }: ModuleCardProps) {
+  const meta: StatusMeta = statusMeta[mod.status]
   const total = lessonCount(mod)
   const doneCount = lessonsDoneCount(mod)
   const barPct = Math.round((doneCount / total) * 100)
@@ -154,7 +170,7 @@ export default function ModuleCard({ mod, onOpenLesson, isDone }) {
                   lesson={l}
                   index={i}
                   status={mod.status}
-                  done={isDone ? isDone(i) : l && l.done === true}
+                  done={isDone ? isDone(i) : (l && l.done) === true}
                   onOpen={onOpenLesson}
                 />
               ))}
