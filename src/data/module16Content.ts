@@ -384,5 +384,228 @@ kubectl exec -it $(kubectl get pod -l app=web -o name | head -1) -- bash
 - \`rollout\`, \`scale\`, \`logs\`, \`exec\` manage daily life.
 - Start with minikube/k3s to practice locally.`,
     },
+    {
+      name: "k3s & minikube",
+      minutes: 11,
+      intro:
+        "Run a real Kubernetes cluster on one laptop or a tiny edge server.",
+      content: `## k3s & minikube
+
+Real k8s is heavy. k3s (a certified lightweight distribution) and minikube (a single-node dev cluster) let you learn on hardware you already own.
+
+### minikube (developer laptop)
+
+\`\`\`bash
+sudo apt install -y conntrack
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+minikube start --driver=docker
+kubectl get nodes
+\`\`\`
+
+### k3s (edge / single-node)
+
+\`\`\`bash
+curl -sfL https://get.k3s.io | sh -
+sudo k3s kubectl get nodes
+\`\`\`
+
+k3s bundles containerd, its own load balancer, and a Helm chart manager — one binary, single node, tiny footprint.
+
+### Deploy something tiny
+
+\`\`\`bash
+kubectl create deploy hello --image=nginxdemos/hello
+kubectl expose deploy hello --port 80 --type NodePort
+kubectl get svc
+curl http://$(minikube ip):$(kubectl get svc hello -o jsonpath='{.spec.ports[0].nodePort}')
+\`\`\`
+
+### Dashboard
+
+\`\`\`bash
+minikube dashboard
+\`\`\`
+
+> **Pro tip:** Use minikube to *learn the API*; use k3s when you want a real long-running cluster on one box. Both give the same \`kubectl\` surface, so skills transfer.
+
+### Key recap
+
+- minikube runs a one-node cluster in a VM/container.
+- k3s is a certified, lightweight single-binary distro.
+- Both expose the real Kubernetes API via kubectl.
+- NodePort services let you reach pods from the host.`,
+    },
+    {
+      name: "Container networking",
+      minutes: 12,
+      intro:
+        "See how containers get IPs, talk to each other, and reach (or hide from) the outside world.",
+      content: `## Container networking
+
+Container networking is userspace plumbing: virtual bridges, veth pairs, NAT, and iptables. Same concepts as VLANs — just inside your host.
+
+### The default Docker bridge
+
+\`\`\`bash
+docker network ls
+docker network inspect bridge | head -40
+ip addr show docker0
+\`\`\`
+
+Containers attach veth pairs to the \`docker0\` bridge and get IPs from a private range. Outbound traffic is NAT'd; inbound needs \`-p 8080:80\`.
+
+### A custom network
+
+\`\`\`bash
+docker network create --driver bridge appnet
+docker run -d --network appnet --name api myapi
+docker run -d --network appnet --name web nginx
+docker exec web getent hosts api
+\`\`\`
+
+Containers on the *same custom bridge* resolve each other by name — no hardcoded IPs.
+
+### Container to host
+
+\`\`\`bash
+docker run --rm alpine sh -c 'getent hosts host.docker.internal'
+\`\`\`
+
+Use \`host.docker.internal\` to reach host-local services.
+
+### Inspect connectivity
+
+\`\`\`bash
+docker run --rm --network host alpine ip addr   # host netns
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' api
+\`\`\`
+
+### Host network mode
+
+\`\`\`bash
+docker run --rm --network host nginx
+\`\`\`
+
+Shared namespace = no port mapping needed, but no isolation.
+
+> **Key idea:** Every bridge network = a mini LAN with DNS. Custom networks give names like \`api\` that resolve inside containers; the default bridge does not.
+
+### Key recap
+
+- \`docker0\` bridge + veth pairs = the default docker network.
+- Custom bridges add per-name DNS between containers.
+- \`-p 8080:80\` maps ports; \`--network host\` skips isolation.
+- \`host.docker.internal\` reaches host services from a container.`,
+    },
+    {
+      name: "Vagrant",
+      minutes: 11,
+      intro:
+        "Spin up reproducible dev VMs from a single Vagrantfile.",
+      content: `## Vagrant
+
+Vagrant defines disposable development environments as code. One \`Vagrantfile\` describes the box, CPU/RAM, provisioning steps — and \`vagrant up\` makes it real.
+
+### A Vagrantfile
+
+\`\`\`ruby
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bookworm64"
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 2048
+    vb.cpus = 2
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+    apt-get update
+    apt-get install -y nginx
+  SHELL
+end
+\`\`\`
+
+### The workflow
+
+\`\`\`bash
+vagrant up            # create + provision
+vagrant ssh           # shell inside
+vagrant reload        # reboot with config changes
+vagrant provision     # re-run provisioning only
+vagrant destroy -f    # tear it all down
+\`\`\`
+
+### Multi-machine
+
+One file, several VMs:
+
+\`\`\`ruby
+config.vm.define "db" do |db|
+  db.vm.box = "debian/bookworm64"
+  db.vm.network "private_network", ip: "192.168.56.10"
+end
+config.vm.define "app" do |app|
+  app.vm.box = "debian/bookworm64"
+  app.vm.network "private_network", ip: "192.168.56.11"
+end
+\`\`\`
+
+> **Key idea:** The magic is reproducibility: \`vagrant up\` in a fresh checkout reproduces the exact environment. Teammates stop saying "works on my machine".
+
+### Key recap
+
+- \`Vagrantfile\` = declarative dev environment.
+- \`vagrant up/ssh/reload/provision/destroy\` is the loop.
+- Forwarded ports and private networks wire VMs together.
+- Provision with shell scripts or move up to Ansible/Puppet.`,
+    },
+    {
+      name: "Proxmox",
+      minutes: 11,
+      intro:
+        "Meet the open-source hypervisor platform that runs whole home-lab and small-business fleets.",
+      content: `## Proxmox
+
+Proxmox VE is a Debian-based platform that bundles a hypervisor (KVM), LXC, storage pooling, and a web UI into one appliance. It's the standard for home labs and small production.
+
+### What it bundles
+
+- **Virtualization** — KVM VMs and LXC containers side-by-side
+- **Cluster control** — multi-node management from one UI
+- **Storage** — ZFS, LVM, and dir storage with snapshots/replication
+- **Backups** — scheduled vzdump backups to a backup store
+
+### The CLI behind the UI
+
+SSH in and you're on real Debian:
+
+\`\`\`bash
+qm list                    # VMs
+pct list                   # LXC containers
+qm start 100 && qm monitor 100
+vzdump 100 --dumpdir /var/lib/vz/dump
+\`\`\`
+
+### Storage pools
+
+\`\`\`bash
+pvesm status
+pvesm set local-zfs -content images
+\`\`\`
+
+### Replication for HA
+
+\`\`\`bash
+pvesr create-local-job jobname --source 100 --target node2
+\`\`\`
+
+> **Key idea:** Proxmox composes the tools you've already learned — the kernel hypervisor from module 16's KVM lessons, containers from LXC — and hands them a management plane so a cluster behaves like one server.
+
+### Key recap
+
+- Proxmox = KVM + LXC + storage + web UI on Debian.
+- \`qm\` for VMs, \`pct\` for containers, \`vzdump\` for backups.
+- ZFS/LVM pools give snapshots and replication.
+- It's how small infra teams run real clusters affordably.`,
+    },
   ],
 }
