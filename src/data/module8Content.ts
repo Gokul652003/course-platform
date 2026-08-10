@@ -1,4 +1,6 @@
-export const module8 = {
+import type { Module } from "../types"
+
+export const module8: Module = {
   id: 8,
   title: "Package Management",
   status: "upcoming",
