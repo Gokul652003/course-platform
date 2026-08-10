@@ -173,5 +173,216 @@ VMs on the default NAT network get egress internet and port-forwarding via virbr
 - Storage pools and NAT networks peer with the VMs.
 - \`virsh dumpxml\` reveals the real underlying config.`,
     },
+    {
+      name: "LXC/LXD",
+      minutes: 11,
+      intro:
+        "Run OS-level 'system containers' that feel like VMs but share the kernel.",
+      content: `## LXC/LXD
+
+LXD gives you **system containers** — they boot a full userspace (systemd, apt, a root user) but share the host kernel, so they start in seconds and sip RAM.
+
+### Install LXD
+
+\`\`\`bash
+sudo apt install -y lxd
+sudo lxd init --auto
+\`\`\`
+
+### Launch a container
+
+\`\`\`bash
+lxc launch ubuntu:24.04 web1
+lxc list
+\`\`\`
+
+\`\`\`bash
++------+---------+------+-------------------+-----------+-----------+
+| NAME |  STATE  | IPV4 |       IPV6        |   TYPE    | SNAPSHOTS |
++------+---------+------+-------------------+-----------+-----------+
+| web1 | RUNNING | ...  | ...               | CONTAINER | 0         |
++------+---------+------+-------------------+-----------+-----------+
+\`\`\`
+
+### Enter and manage
+
+\`\`\`bash
+lxc exec web1 -- bash
+lxc info web1
+lxc config set web1 limits.memory 500MiB
+lxc config set web1 limits.cpu 2
+lxc stop web1 && lxc start web1
+\`\`\`
+
+### Snapshots and copies
+
+\`\`\`bash
+lxc snapshot web1 clean
+lxc restore web1 clean
+lxc copy web1 web2
+\`\`\`
+
+### Publish a reusable image
+
+\`\`\`bash
+lxc publish web1 --alias my-nginx >/dev/null
+lxc launch my-nginx web3
+\`\`\`
+
+> **Key idea:** LXD changes the "container = stateless single process" mental model for a "container = lightweight VM" model. Same isolation family as Docker, very different unit of work.
+
+### Key recap
+
+- LXD containers boot full userspaces in seconds.
+- \`lxc launch/exec/list/info\` are the core verbs.
+- Limits like \`limits.memory\`/\`limits.cpu\` tune the container.
+- Snapshots, copies, and publish give VM-like workflows.`,
+    },
+    {
+      name: "Podman",
+      minutes: 11,
+      intro:
+        "Run OCI containers rootless and daemon-less — a drop-in Docker replacement without Docker.",
+      content: `## Podman
+
+Podman runs the same OCI containers as Docker but with no central daemon: **rootless** by default and process-level isolated via cgroups v2. The CLI is nearly identical.
+
+### Install
+
+\`\`\`bash
+sudo apt install -y podman
+podman --version
+\`\`\`
+
+### A familiar first run
+
+\`\`\`bash
+podman run -d -p 8080:80 --name web nginx
+podman ps
+podman exec -it web bash
+podman stop web && podman rm web
+\`\`\`
+
+### No sudo needed
+
+\`\`\`bash
+id -u
+podman info | grep -A2 rootless
+\`\`\`
+
+Rootless containers run in an isolated user namespace with your UID — no root-daemon, no privilege to abuse.
+
+### Managing images
+
+\`\`\`bash
+podman images
+podman pull postgres:16
+podman rmi nginx
+\`\`\`
+
+### Compose support
+
+\`podman-compose\` runs existing \`docker-compose.yml\` files:
+
+\`\`\`bash
+sudo apt install -y podman-compose
+podman-compose up -d
+\`\`\`
+
+### Systemd integration
+
+Log in on boot and manage containers as services:
+
+\`\`\`bash
+podman generate systemd --new --name web > /etc/systemd/system/web-container.service
+systemctl --user enable --now web-container.service
+\`\`\`
+
+> **Pro tip:** \`alias docker=podman\` works for most workflows. Rootless-first means a container breakout doesn't grant host root — a genuine security win over Docker defaults.
+
+### Key recap
+
+- Podman is daemon-less and rootless by default.
+- The CLI mirrors Docker (\`run\`, \`ps\`, \`exec\`, \`build\`).
+- \`podman-compose\` runs compose files unchanged.
+- \`podman generate systemd\` turns containers into boot services.`,
+    },
+    {
+      name: "Kubernetes basics",
+      minutes: 13,
+      intro:
+        "Understand the building blocks of container orchestration: Pods, Deployments, Services.",
+      content: `## Kubernetes basics
+
+Kubernetes (k8s) schedules containers across a cluster of machines. Its vocabulary is precise — learn the objects and the ecosystem demystifies.
+
+### Core objects
+
+- **Pod** — the smallest unit; one or more containers sharing a network namespace and IP
+- **Deployment** — declares "I want 3 replicas of this image", k8s keeps them healthy
+- **Service** — a stable IP/DNS in front of a set of pods
+- **ConfigMap / Secret** — config and credentials injected into pods
+
+### A minimal Deployment
+
+\`\`\`yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: web
+        image: nginx:stable
+        ports:
+        - containerPort: 80
+\`\`\`
+
+\`\`\`bash
+kubectl apply -f deployment.yaml
+kubectl get pods
+kubectl get deploy
+kubectl rollout status deploy/web
+\`\`\`
+
+### Expose it
+
+\`\`\`bash
+kubectl expose deployment web --port 80 --type LoadBalancer
+kubectl get svc
+\`\`\`
+
+### Scaling
+
+\`\`\`bash
+kubectl scale deployment web --replicas=6
+kubectl scale deployment web --replicas=2
+\`\`\`
+
+### Logs and exec
+
+\`\`\`bash
+kubectl logs deploy/web
+kubectl exec -it $(kubectl get pod -l app=web -o name | head -1) -- bash
+\`\`\`
+
+> **Key idea:** You rarely touch pods directly. You declare Desired State in a Deployment; Kubernetes reconciles reality to match it. That "reconcile loop" is the entire philosophy.
+
+### Key recap
+
+- Pod = scheduling unit; Deployment = desired count; Service = stable access.
+- \`kubectl apply\` declares state; k8s converges toward it.
+- \`rollout\`, \`scale\`, \`logs\`, \`exec\` manage daily life.
+- Start with minikube/k3s to practice locally.`,
+    },
   ],
 }
