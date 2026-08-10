@@ -303,5 +303,276 @@ sysctl vm.swappiness
 - Tune one or two knobs and measure — don't shotgun.
 - Verify with \`cat /proc/sys/...\` after applying.`,
     },
+    {
+      name: "perf",
+      minutes: 12,
+      intro:
+        "Find out where CPU time actually goes using Linux's built-in profiler.",
+      content: `## perf
+
+\`perf\` is Linux's native performance profiler. CPU time, cache misses, call graphs — if the kernel can count it, perf can record and report it.
+
+### Record what a command does
+
+\`\`\`bash
+sudo perf record -g -o /tmp/perf.data mycommand
+\`\`\`
+
+\`-g\` captures call graphs so you see *why* a function is called.
+
+### Report
+
+\`\`\`bash
+sudo perf report -i /tmp/perf.data --stdio | head -40
+\`\`\`
+
+Example output:
+
+\`\`\`
+Samples: 10K of event 'cpu-clock', 5000 Hz
+ 99.91%  mycommand
+   --99.10%-- main
+              |--59.10%-- parse_config
+              |--25.30%-- do_sort
+              --14.70%-- free_mem
+\`\`\`
+
+Top of the tree = where the time goes.
+
+### Profile a running process
+
+\`\`\`bash
+sudo perf top
+sudo perf top -p $(pidof nginx | awk '{print $1}')
+\`\`\`
+
+\`perf top\` is live \`top\` for CPU-in-kernel-times.
+
+### Different events
+
+\`\`\`bash
+sudo perf stat mycommand
+sudo perf stat -e cache-misses,cache-references mycommand
+\`\`\`
+
+\`perf stat\` gives aggregate counters instead of per-symbol samples.
+
+> **Pro tip:** \`perf\` needs \`kernel.perf_event_paranoid\` relaxed on some systems (\`sudo sysctl -w kernel.perf_event_paranoid=1\`). Start with \`perf stat\` (cheap, aggregate) before \`perf record\` (detailed, heavier).
+
+### Key recap
+
+- \`perf record -g\` \`perf report\` profiles call graphs.
+- \`perf top\` watches live who burns CPU.
+- \`perf stat -e <events>\` gives counter totals.
+- It reads the Linux perf_events subsystem — no special tools to install.`,
+    },
+    {
+      name: "sysstat (sar, iostat)",
+      minutes: 11,
+      intro:
+        "Collect historical CPU, memory, disk, and network stats so you can blame the right thing.",
+      content: `## sysstat (sar, iostat)
+
+sysstat's \`sar\` is the long-tail recorder: it samples system activity every 10 minutes and saves it. When the boss asks "what happened last night", \`sar\` has the answer.
+
+### Install and enable
+
+\`\`\`bash
+sudo apt install -y sysstat
+sudo systemctl enable --now sysstat
+\`\`\`
+
+### See what's recorded
+
+\`\`\`bash
+sar          # all data today
+sar -u 1 5   # CPU, every 1s, 5 samples
+sar -r       # memory
+sar -b       # I/O
+sar -n DEV   # network per device
+sar -q       # load queue
+\`\`\`
+
+### Yesterday
+
+\`\`\`bash
+sar -f /var/log/sysstat/sa$(date -d yesterday +%d) -u
+\`\`\`
+
+### iostat for disk
+
+\`\`\`bash
+iostat -x 2 3
+\`\`\`
+
+Watch \`%util\` (how busy the device is) and \`await\` (service time, includes queueing).
+
+### pidstat for per-process
+
+\`\`\`bash
+pidstat -d 2
+pidstat -r -p ALL
+\`\`\`
+
+> **Key idea:** \`top\` shows now; \`sar\` shows *then*. When a server "feels slow", compare today's \`sar\` to last week's — a shifted bottleneck appears instantly in the history.
+
+### Key recap
+
+- sysstat saves 10-minute samples to \`/var/log/sysstat/\`.
+- \`sar -u/-r/-b/-n DEV/-q\` cover CPU, RAM, I/O, net.
+- \`iostat -x\` flags busy disks via \`%util\` and \`await\`.
+- \`pidstat\` attributes usage to specific processes.`,
+    },
+    {
+      name: "I/O monitoring",
+      minutes: 10,
+      intro:
+        "Discover which process is hammering the disk, and how fast it can go.",
+      content: `## I/O monitoring
+
+Slow storage shows up as symptoms everywhere else. These tools trace performance back to the specific process on the specific device.
+
+### Per-process I/O
+
+\`\`\`bash
+sudo apt install -y iotop
+sudo iotop -o
+\`\`\`
+
+\`-o\` shows only processes that have done I/O, which keeps a busy screen readable.
+
+### Per-device I/O
+
+\`\`\`bash
+iostat -x 2
+blktrace -d /dev/sda -o /tmp/bt | timeout 5 tail
+sudo blkparse -i /tmp/bt -O
+\`\`\`
+
+### A simpler one-shot
+
+\`\`\`bash
+sudo iotop -b -n 3
+\`\`\`
+
+Batch mode prints samples and exits — scriptable.
+
+### Filesystem-level insight
+
+\`\`\`bash
+du -sh /var/log
+lsof | grep deleted
+\`\`\`
+
+**Deleted-but-open files** still hold disk space until released — \`lsof | grep deleted\` finds them, and killing the process frees the space.
+
+> **Pro tip:** When "disk full" but \`du\` shows normal usage, it's almost always deleted files still held open by a process. \`lsof +L1\` lists them directly.
+
+### Key recap
+
+- \`iotop -o\` ranks processes by current I/O.
+- \`iostat -x\` reports device utilization and latency.
+- \`blktrace\`/\`blkparse\` capture block-level detail.
+- Deleted-but-open files hide free space — \`lsof +L1\` reveals them.`,
+    },
+    {
+      name: "CPU governors",
+      minutes: 10,
+      intro:
+        "Control how fast CPUs turbo, idle, and scale between battery and performance.",
+      content: `## CPU governors
+
+The CPU frequency governor decides how aggressively the processor ramps up and down. It's the lever behind "why is my server slow one second, fast the next".
+
+### Check the governor
+
+\`\`\`bash
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+cpupower frequency-info
+\`\`\`
+
+### Common governors
+
+| Governor | Behavior |
+|----------|----------|
+| \`performance\` | always maximum frequency |
+| \`powersave\` | always minimum frequency |
+| \`ondemand\` | ramp up on load, down immediately after |
+| \`schedutil\` | tied to scheduler decisions (modern default) |
+
+### Set it for all cores
+
+\`\`\`bash
+sudo apt install -y linux-cpupower
+sudo cpupower frequency-set -g performance
+\`\`\`
+
+### Confirm frequencies actually ramp
+
+\`\`\`bash
+cpupower frequency-info | grep -E 'current CPU|drivers'
+watch -n1 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq'
+\`\`\`
+
+> **Pro tip:** A "many-core" benchmark on a laptop that \`ondemand\` keeps at idle speed looks terrible. For latency-sensitive production work, \`performance\` governor removes the ramp-up delay — you pay in watts.
+
+### Key recap
+
+- Governors define the CPU frequency policy.
+- \`performance\` wins for latency; \`powersave\`/ondemand\` for power.
+- \`cpupower frequency-set -g\` switches all logical CPUs.
+- Verify with \`scaling_cur_freq\` in sysfs.`,
+    },
+    {
+      name: "Kernel messaging (dmesg)",
+      minutes: 10,
+      intro:
+        "Read the kernel's own log to diagnose hardware and driver panics.",
+      content: `## Kernel messaging (dmesg)
+
+The kernel talks constantly. \`dmesg\` reads ring buffer of boot-time and runtime hardware/driver messages — where OOM kills, disk errors, and USB dramas get written.
+
+### View recent kernel messages
+
+\`\`\`bash
+dmesg | tail -40
+dmesg -w
+\`\`\`
+
+\`-w\` follows new messages in real time — plug in a device and watch the kernel react.
+
+### Search for trouble
+
+\`\`\`bash
+dmesg | grep -iE "error|fail|warn" | tail -30
+dmesg | grep -i "oom"
+dmesg -l err,crit,alert,emerg
+\`\`\`
+
+### Boot-time history via journal
+
+The journal stores the full boot, so \`journalctl -k -b\` is usually more convenient than live \`dmesg\`:
+
+\`\`\`bash
+journalctl -k | tail -50
+journalctl -k -b -1      # previous boot
+\`\`\`
+
+### See a specific device
+
+\`\`\`bash
+dmesg | grep -i usb | tail -20
+lsusb && dmesg | grep -i nvme
+\`\`\`
+
+> **Key idea:** When hardware "just isn't recognized" — a disk, a NIC, a camera — \`dmesg\` is the first stop. The kernel names the exact reason it gave up.
+
+### Key recap
+
+- \`dmesg\` reads the kernel ring buffer; \`-w\` follows live.
+- \`journalctl -k -b\` replays any boot's kernel log.
+- Grep for \`error\`/\`oom\`/disk names to find the story.
+- Hardware that "doesn't work" always leaves a kernel message.`,
+    },
   ],
 }
