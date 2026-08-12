@@ -70,7 +70,7 @@ After the parameter list, \`: Int\` declares what the function returns.
 
 \`\`\`kotlin
 fun greet(name: String) {          // returns Unit, omitted
-    println("Hi, \$name")
+    println("Hi, $name")
 }
 
 fun getName(): String = "Gokul"    // returns String from single expression
@@ -109,7 +109,7 @@ Give a parameter a default value and callers can drop it:
 
 \`\`\`kotlin
 fun greet(name: String, greeting: String = "Hello") {
-    println("\$greeting, \$name")
+    println("$greeting, $name")
 }
 
 greet("Gokul")                 // Hello, Gokul
@@ -125,7 +125,7 @@ fun createOrder(
     item: String,
     qty: Int = 1,
     urgent: Boolean = false,
-) = "\$qty x \$item" + if (urgent) " (URGENT)" else ""
+) = "$qty x $item" + if (urgent) " (URGENT)" else ""
 
 createOrder(item = "Laptop", urgent = true)          // 1 x Laptop (URGENT)
 createOrder("Mouse", qty = 3)                        // 3 x Mouse

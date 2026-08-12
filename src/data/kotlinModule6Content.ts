@@ -126,7 +126,7 @@ val person = Person("", 0).apply {
 
 \`\`\`kotlin
 val list = mutableListOf(1, 2, 3).also {
-    println("Created: \$it")   // see the object, keep working with it
+    println("Created: $it")   // see the object, keep working with it
 }
 \`\`\`
 
@@ -136,14 +136,14 @@ val list = mutableListOf(1, 2, 3).also {
 val doubled = "42".let { it.toInt() * 2 }   // 84
 // Great with nullable values + safe call
 val name: String? = "Gokul"
-name?.let { println("Not null: \$it") }
+name?.let { println("Not null: $it") }
 \`\`\`
 
 ### run — return a result, work with this
 
 \`\`\`kotlin
 val length = "Kotlin".run {
-    println("Processing \$this")
+    println("Processing $this")
     this.length
 }
 // 6
@@ -153,7 +153,7 @@ val length = "Kotlin".run {
 
 \`\`\`kotlin
 with(person) {
-    println("\$name is \$age")
+    println("$name is $age")
 }
 \`\`\`
 
@@ -213,8 +213,8 @@ listOf(1, 2, 3, 4).filter { it.isEven() }   // [2, 4]
 
 \`\`\`kotlin
 fun StringBuilder.wrap(tag: String) {
-    insert(0, "<\$tag>")
-    append("</\$tag>")
+    insert(0, "<$tag>")
+    append("</$tag>")
 }
 \`\`\`
 

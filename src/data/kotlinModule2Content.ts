@@ -27,7 +27,7 @@ Insert values directly with \`$\`:
 val name = "Gokul"
 val age = 30
 
-println("Hi, \$name")
+println("Hi, $name")
 println("You are \${age + 1} years old")   // expressions inside \${}
 \`\`\`
 
@@ -69,7 +69,7 @@ Use \`==\` for value comparison, never worry about reference equality:
 "abc" == "abc"   // true
 \`\`\`
 
-> **Key idea:** Use \`\$\{}\` string templates instead of string concatenation — they're the idiomatic Kotlin way and easier to read.`,
+> **Key idea:** Use \`$\{}\` string templates instead of string concatenation — they're the idiomatic Kotlin way and easier to read.`,
     },
     {
       name: "if / else",
@@ -227,7 +227,7 @@ for (fruit in fruits) {
 
 \`\`\`kotlin
 for ((index, fruit) in fruits.withIndex()) {
-    println("\$index: \$fruit")
+    println("$index: $fruit")
 }
 \`\`\`
 
@@ -250,7 +250,7 @@ for (ch in "Kotlin") {
 \`\`\`kotlin
 var count = 0
 while (count < 3) {
-    println("Count: \$count")
+    println("Count: $count")
     count++
 }
 // Count: 0
@@ -265,7 +265,7 @@ If the condition is false from the start, the body **never** runs.
 \`\`\`kotlin
 var x = 10
 do {
-    println("x is \$x")
+    println("x is $x")
     x++
 } while (x < 3)
 // x is 10   <- runs once even though 10 < 3 is false

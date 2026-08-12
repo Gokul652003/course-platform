@@ -86,7 +86,7 @@ val car = Car("red")   // brand defaults to "unknown"
 class Car(val color: String) {
     var speed = 0
     init {
-        println("Car \$color created")
+        println("Car $color created")
     }
 }
 \`\`\`
@@ -119,7 +119,7 @@ In Kotlin, a class must be marked \`open\` before another can inherit from it:
 \`\`\`kotlin
 open class Animal(val name: String) {
     open fun speak() {
-        println("\$name makes a sound")
+        println("$name makes a sound")
     }
 }
 \`\`\`
@@ -129,7 +129,7 @@ open class Animal(val name: String) {
 \`\`\`kotlin
 class Dog(name: String) : Animal(name) {
     override fun speak() {
-        println("\$name barks")
+        println("$name barks")
     }
 }
 
@@ -147,7 +147,7 @@ fun main() {
 \`\`\`kotlin
 override fun speak() {
     super.speak()      // run parent version first
-    println("\$name barks additionally")
+    println("$name barks additionally")
 }
 \`\`\`
 
