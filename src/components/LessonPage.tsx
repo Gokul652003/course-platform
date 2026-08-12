@@ -1,23 +1,53 @@
 import { useEffect, useRef } from "react"
+import { useNavigate, useParams, Link } from "react-router-dom"
 import ReactMarkdown from "react-markdown"
 import { ArrowLeft, ArrowRight, Check, CheckCircle2 } from "lucide-react"
 import { lessonDuration } from "../data/courseData.ts"
+import { getCourse } from "../data/courses.tsx"
+import { useCourseProgress } from "../data/progress.tsx"
 import type { Module } from "../types.ts"
 
-interface LessonPageProps {
-  mod: Module
-  lessonIndex: number
-  onSelect: (index: number) => void
-  onBack: () => void
-  isDone: (index: number) => boolean
-  onToggleDone: (index: number) => void
+function findLessonTarget(
+  bundleModules: Module[],
+  fromModId: number,
+  fromIndex: number,
+  offset: number,
+): { modId: number; index: number } | null {
+  let modIdx = bundleModules.findIndex((m) => m.id === fromModId)
+  let index = fromIndex
+  for (let hops = 0; hops < bundleModules.length; hops++) {
+    const lessons = bundleModules[modIdx].lessons
+    if (offset > 0) {
+      if (index + 1 < lessons.length) return { modId: bundleModules[modIdx].id, index: index + 1 }
+      if (modIdx + 1 < bundleModules.length) {
+        modIdx += 1
+        index = 0
+        continue
+      }
+    } else {
+      if (index > 0) return { modId: bundleModules[modIdx].id, index: index - 1 }
+      if (modIdx > 0) {
+        modIdx -= 1
+        index = bundleModules[modIdx].lessons.length - 1
+        continue
+      }
+    }
+    return null
+  }
+  return null
 }
 
-export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone, onToggleDone }: LessonPageProps) {
-  const lesson = mod.lessons[lessonIndex]
-  const total = mod.lessons.length
-  const next = lessonIndex + 1 < total
-  const done = isDone(lessonIndex)
+export default function LessonPage() {
+  const { courseId = "", moduleId = "", lessonIndex = "" } = useParams()
+  const navigate = useNavigate()
+  const bundle = getCourse(courseId)
+  const { isDone, toggleDone } = useCourseProgress()
+
+  const modId = Number(moduleId)
+  const index = Number(lessonIndex)
+  const mod = bundle?.modules.find((m) => m.id === modId)
+  const lesson = mod?.lessons[index]
+  const done = isDone(courseId, modId, index)
   const topRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,24 +55,48 @@ export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone,
   }, [lessonIndex])
 
   useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "ArrowRight" && next) onSelect(lessonIndex + 1)
-      if (e.key === "ArrowLeft" && lessonIndex > 0) onSelect(lessonIndex - 1)
+    const onKey = (e: KeyboardEvent) => {
+      if (!bundle || lessonIndex === "") return
+      if (e.key === "ArrowRight") {
+        const next = findLessonTarget(bundle.modules, modId, index, 1)
+        if (next) navigate(`/course/${courseId}/module/${next.modId}/lesson/${next.index}`)
+      }
+      if (e.key === "ArrowLeft") {
+        const prev = findLessonTarget(bundle.modules, modId, index, -1)
+        if (prev) navigate(`/course/${courseId}/module/${prev.modId}/lesson/${prev.index}`)
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [lessonIndex, next, onSelect])
+  }, [bundle, courseId, modId, index, lessonIndex, navigate])
+
+  if (!bundle || !mod || !lesson || lessonIndex === "") {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <p className="text-slate-400">Lesson not found.</p>
+        <Link to={`/course/${courseId}`} className="mt-4 inline-block text-sm text-white underline">
+          Back to course
+        </Link>
+      </div>
+    )
+  }
+
+  const total = mod.lessons.length
+  const next = findLessonTarget(bundle.modules, modId, index, 1)
+  const prev = findLessonTarget(bundle.modules, modId, index, -1)
+  const nextLink = next ? `/course/${courseId}/module/${next.modId}/lesson/${next.index}` : null
+  const prevLink = prev ? `/course/${courseId}/module/${prev.modId}/lesson/${prev.index}` : null
 
   return (
     <div ref={topRef} className="scroll-mt-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <button
-          onClick={onBack}
+        <Link
+          to={`/course/${courseId}`}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white"
         >
           <ArrowLeft size={16} />
           All modules
-        </button>
+        </Link>
         <span className="text-xs text-slate-500">
           Module {mod.id} · {mod.title}
         </span>
@@ -53,14 +107,14 @@ export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone,
           <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-800">
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all"
-              style={{ width: `${((lessonIndex + 1) / total) * 100}%` }}
+              style={{ width: `${((index + 1) / total) * 100}%` }}
             />
           </div>
 
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
-                Lesson {lessonIndex + 1} of {total}
+                Lesson {index + 1} of {total}
               </div>
               <h1 className="mt-1 text-2xl font-bold text-white md:text-3xl">{lesson.name}</h1>
               <div className="mt-1.5 text-sm text-slate-500">
@@ -71,7 +125,7 @@ export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone,
             </div>
 
             <button
-              onClick={() => onToggleDone(lessonIndex)}
+              onClick={() => toggleDone(courseId, modId, index)}
               className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                 done
                   ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
@@ -89,31 +143,34 @@ export default function LessonPage({ mod, lessonIndex, onSelect, onBack, isDone,
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-slate-800 bg-slate-900/80 px-6 py-5 md:px-8">
-          <button
-            onClick={() => lessonIndex > 0 && onSelect(lessonIndex - 1)}
-            disabled={lessonIndex === 0}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 transition enabled:hover:border-slate-500 enabled:hover:text-white disabled:opacity-40"
-          >
-            <ArrowLeft size={16} />
-            Previous
-          </button>
+          {prevLink ? (
+            <Link
+              to={prevLink}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:text-white"
+            >
+              <ArrowLeft size={16} />
+              Previous
+            </Link>
+          ) : (
+            <span />
+          )}
 
-          {next ? (
-            <button
-              onClick={() => onSelect(lessonIndex + 1)}
+          {nextLink ? (
+            <Link
+              to={nextLink}
               className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110"
             >
               Next lesson
               <ArrowRight size={16} />
-            </button>
+            </Link>
           ) : (
-            <button
-              onClick={onBack}
+            <Link
+              to={`/course/${courseId}`}
               className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-6 py-2.5 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
             >
               <CheckCircle2 size={16} />
-              Finish module · All modules
-            </button>
+              Finish course · All modules
+            </Link>
           )}
         </div>
       </div>

@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData.ts"
+import { statusMeta, lessonCount } from "../data/courseData.ts"
 import type { StatusMeta } from "../data/courseData.ts"
 import { Clock, ChevronRight, ChevronDown, Check, Lock } from "lucide-react"
+import { useCourseProgress } from "../data/progress.tsx"
 import type { Lesson, Module, ModuleStatus } from "../types.ts"
 
 const barGradient = {
@@ -109,22 +110,23 @@ function LessonTile({ lesson, index, status, done, onOpen, highlighted }: Lesson
 
 interface ModuleCardProps {
   mod: Module
+  courseId?: string
   onOpenLesson: (index: number) => void
-  isDone?: (index: number) => boolean
   defaultExpanded?: boolean
   nextLessonIndex?: number
 }
 
-export default function ModuleCard({ mod, onOpenLesson, isDone, defaultExpanded = false, nextLessonIndex }: ModuleCardProps) {
+export default function ModuleCard({ mod, courseId, onOpenLesson, defaultExpanded = false, nextLessonIndex }: ModuleCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
+  const { isDone, doneCount: countDone } = useCourseProgress()
   const meta: StatusMeta = statusMeta[mod.status]
   const total = lessonCount(mod)
-  const doneCount = lessonsDoneCount(mod)
-  const barPct = Math.round((doneCount / total) * 100)
+  const doneAmt = courseId ? countDone(courseId, mod.id) : 0
+  const barPct = Math.round((doneAmt / total) * 100)
   const showTiles =
     mod.status === "in_progress" || mod.lessons.some((l) => typeof l === "object" && l.content)
-  const remaining = total - doneCount
-  const isNext = nextLessonIndex !== undefined && !isDone?.(nextLessonIndex)
+  const remaining = total - doneAmt
+  const isNext = nextLessonIndex !== undefined && !(courseId && isDone(courseId, mod.id, nextLessonIndex))
 
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 transition-all hover:border-slate-700 hover:bg-slate-900">
@@ -160,7 +162,7 @@ export default function ModuleCard({ mod, onOpenLesson, isDone, defaultExpanded 
           <h3 className="truncate text-lg font-semibold text-white">{mod.title}</h3>
           <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
             <span>
-              {doneCount} / {total} lessons · {barPct}%
+              {doneAmt} / {total} lessons · {barPct}%
             </span>
             <span className="h-3 w-px bg-slate-700" />
             <span>{remaining > 0 ? `${remaining} left` : "Complete"}</span>
@@ -204,7 +206,7 @@ export default function ModuleCard({ mod, onOpenLesson, isDone, defaultExpanded 
                     lesson={l}
                     index={i}
                     status={mod.status}
-                    done={isDone ? isDone(i) : (l && l.done) === true}
+                    done={courseId ? isDone(courseId, mod.id, i) : (l && l.done) === true}
                     onOpen={onOpenLesson}
                     highlighted={i === nextLessonIndex}
                   />

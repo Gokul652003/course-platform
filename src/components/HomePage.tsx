@@ -4,9 +4,10 @@ import {
   ArrowDown,
   Sparkles,
 } from "lucide-react"
+import { Link } from "react-router-dom"
 import { courses } from "../data/courses.tsx"
 
-export default function HomePage({ onOpenCourse }: { onOpenCourse: (id: string) => void }) {
+export default function HomePage() {
   return (
     <div className="min-h-screen">
       <div className="relative overflow-hidden">
@@ -64,9 +65,9 @@ export default function HomePage({ onOpenCourse }: { onOpenCourse: (id: string) 
 
             <div className="grid gap-5 md:grid-cols-2">
               {courses.map((c) => (
-                <button
+                <Link
                   key={c.id}
-                  onClick={() => onOpenCourse(c.id)}
+                  to={`/course/${c.id}`}
                   className={`text-left transition-all hover:-translate-y-1 ${
                     c.featured ? "md:col-span-2" : ""
                   }`}
@@ -115,7 +116,7 @@ export default function HomePage({ onOpenCourse }: { onOpenCourse: (id: string) 
                       </div>
                     </div>
                   </article>
-                </button>
+                </Link>
               ))}
             </div>
           </section>
