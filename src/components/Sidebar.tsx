@@ -1,12 +1,15 @@
-import { modules, statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData.ts"
+import { statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData.ts"
 import type { StatusMeta } from "../data/courseData.ts"
+import type { CourseBundle } from "../data/courses.tsx"
 
 interface SidebarProps {
+  bundle: CourseBundle
   activeId: number
   onSelect: (id: number) => void
 }
 
-export default function Sidebar({ activeId, onSelect }: SidebarProps) {
+export default function Sidebar({ bundle, activeId, onSelect }: SidebarProps) {
+  const modules = bundle.modules
   const totalDone = modules.reduce((acc, m) => acc + lessonsDoneCount(m), 0)
   const totalLessons = modules.reduce((acc, m) => acc + lessonCount(m), 0)
   const pct = Math.round((totalDone / totalLessons) * 100)
