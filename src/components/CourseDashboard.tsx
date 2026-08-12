@@ -1,12 +1,13 @@
 import { useState } from "react"
-import { GraduationCap, ArrowLeft, Terminal } from "lucide-react"
+import { GraduationCap, ArrowLeft, Terminal, Code2 } from "lucide-react"
 import Header from "./Header.tsx"
 import Sidebar from "./Sidebar.tsx"
 import ModuleCard from "./ModuleCard.tsx"
 import LessonPage from "./LessonPage.tsx"
-import { modules } from "../data/courseData.ts"
+import type { CourseBundle } from "../data/courses.tsx"
+import type { Module } from "../types.ts"
 
-function MobileNav({ activeId, onSelect }: { activeId: number; onSelect: (id: number) => void }) {
+function MobileNav({ modules, activeId, onSelect }: { modules: Module[]; activeId: number; onSelect: (id: number) => void }) {
   return (
     <div className="mb-6 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:hidden">
       {modules.map((m) => (
@@ -26,13 +27,13 @@ function MobileNav({ activeId, onSelect }: { activeId: number; onSelect: (id: nu
   )
 }
 
-export default function CourseDashboard({ onBack }: { onBack: () => void }) {
+export default function CourseDashboard({ bundle, onBack }: { bundle: CourseBundle; onBack: () => void }) {
   const [activeId, setActiveId] = useState(1)
   const [lessonModuleId, setLessonModuleId] = useState<number | null>(null)
   const [lessonIndex, setLessonIndex] = useState(0)
   const [completed, setCompleted] = useState<Set<string>>(() => {
     const done = new Set<string>()
-    modules.forEach((m) => {
+    bundle.modules.forEach((m) => {
       if (m.status === "complete") {
         m.lessons.forEach((l, i) => {
           if (typeof l === "object" && l.content) done.add(`${m.id}:${i}`)
@@ -42,13 +43,14 @@ export default function CourseDashboard({ onBack }: { onBack: () => void }) {
     return done
   })
 
-  const activeModule = modules.find((m) => m.id === activeId)
+  const activeModule = bundle.modules.find((m) => m.id === activeId)
   const openLesson = (modId: number, index: number) => {
     setLessonModuleId(modId)
     setLessonIndex(index)
   }
 
-  const lessonMod = lessonModuleId !== null ? modules.find((m) => m.id === lessonModuleId) : null
+  const lessonMod =
+    lessonModuleId !== null ? bundle.modules.find((m) => m.id === lessonModuleId) : null
 
   const toggleDone = (index: number) => {
     if (!lessonMod) return
@@ -68,6 +70,9 @@ export default function CourseDashboard({ onBack }: { onBack: () => void }) {
     setLessonModuleId(null)
   }
 
+  const isLinux = bundle.id === "linux"
+  const CourseIcon = isLinux ? Terminal : Code2
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -80,7 +85,9 @@ export default function CourseDashboard({ onBack }: { onBack: () => void }) {
             >
               <ArrowLeft size={18} />
             </button>
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 text-white">
+            <span
+              className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-white ${bundle.accent.gradient}`}
+            >
               <GraduationCap size={24} />
             </span>
             <div>
@@ -91,14 +98,14 @@ export default function CourseDashboard({ onBack }: { onBack: () => void }) {
 
           <div className="hidden items-center gap-2 text-xs text-slate-400 sm:flex">
             <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 py-1">
-              <Terminal size={14} className="text-emerald-400" />
-              Linux · The complete course
+              <CourseIcon size={14} className={bundle.accent.text} />
+              {isLinux ? "Linux · The complete course" : "Kotlin · The complete course"}
             </span>
           </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
-          <Sidebar activeId={activeId} onSelect={handleModuleSelect} />
+          <Sidebar bundle={bundle} activeId={activeId} onSelect={handleModuleSelect} />
 
           <main>
             {lessonMod ? (
@@ -112,15 +119,15 @@ export default function CourseDashboard({ onBack }: { onBack: () => void }) {
               />
             ) : (
               <>
-                <Header />
+                <Header bundle={bundle} />
                 <div className="mt-8 lg:hidden">
-                  <MobileNav activeId={activeId} onSelect={handleModuleSelect} />
+                  <MobileNav modules={bundle.modules} activeId={activeId} onSelect={handleModuleSelect} />
                 </div>
                 <div className="mb-4 mt-8 flex items-center justify-between lg:mt-8">
                   <h2 className="text-xl font-bold text-white">Course Modules</h2>
                 </div>
                 <div className="grid gap-5 sm:grid-cols-1 xl:grid-cols-2">
-                  {modules.map((m) => (
+                  {bundle.modules.map((m) => (
                     <ModuleCard
                       key={m.id}
                       mod={m}
