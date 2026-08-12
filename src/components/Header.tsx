@@ -1,6 +1,6 @@
-import { Terminal, Layers, BookOpen, Clock, Signal } from "lucide-react"
+import { Terminal, Code2, Layers, BookOpen, Clock, Signal } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { course } from "../data/courseData.ts"
+import type { CourseBundle } from "../data/courses.tsx"
 
 function Stat({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
   return (
@@ -16,7 +16,8 @@ function Stat({ label, value, icon: Icon }: { label: string; value: string | num
   )
 }
 
-export default function Header() {
+export default function Header({ bundle }: { bundle: CourseBundle }) {
+  const { course } = bundle
   return (
     <header className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 p-8 md:p-10">
       <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
@@ -33,8 +34,10 @@ export default function Header() {
           </div>
 
           <h1 className="flex items-center gap-3 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/30">
-              <Terminal size={26} className="text-emerald-400" />
+            <span
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white ${bundle.accent.gradient}`}
+            >
+              {bundle.id === "linux" ? <Terminal size={26} /> : <Code2 size={26} />}
             </span>
             {course.title}
           </h1>
