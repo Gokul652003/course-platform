@@ -1,13 +1,24 @@
 import { useState } from "react"
-import { GraduationCap, ArrowLeft, Terminal, Code2 } from "lucide-react"
+import { GraduationCap, ArrowLeft, ArrowRight, PlayCircle, Terminal, Code2 } from "lucide-react"
 import Header from "./Header.tsx"
 import Sidebar from "./Sidebar.tsx"
 import ModuleCard from "./ModuleCard.tsx"
 import LessonPage from "./LessonPage.tsx"
+import { lessonDuration } from "../data/courseData.ts"
 import type { CourseBundle } from "../data/courses.tsx"
 import type { Module } from "../types.ts"
 
-function MobileNav({ modules, activeId, onSelect }: { modules: Module[]; activeId: number; onSelect: (id: number) => void }) {
+function MobileNav({
+  modules,
+  activeId,
+  onSelect,
+  accentBg,
+}: {
+  modules: Module[]
+  activeId: number
+  onSelect: (id: number) => void
+  accentBg: string
+}) {
   return (
     <div className="mb-6 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:hidden">
       {modules.map((m) => (
@@ -16,7 +27,7 @@ function MobileNav({ modules, activeId, onSelect }: { modules: Module[]; activeI
           onClick={() => onSelect(m.id)}
           className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${
             m.id === activeId
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+              ? `border-transparent text-slate-950 ${accentBg}`
               : "border-slate-800 bg-slate-900 text-slate-400"
           }`}
         >
@@ -73,6 +84,18 @@ export default function CourseDashboard({ bundle, onBack }: { bundle: CourseBund
   const isLinux = bundle.id === "linux"
   const CourseIcon = isLinux ? Terminal : Code2
 
+  const nextUp = (() => {
+    for (const m of bundle.modules) {
+      for (let i = 0; i < m.lessons.length; i++) {
+        const l = m.lessons[i]
+        if (typeof l === "object" && l.content && !isLessonDone(m.id, i)) {
+          return { mod: m, index: i }
+        }
+      }
+    }
+    return null
+  })()
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -121,8 +144,48 @@ export default function CourseDashboard({ bundle, onBack }: { bundle: CourseBund
               <>
                 <Header bundle={bundle} />
                 <div className="mt-8 lg:hidden">
-                  <MobileNav modules={bundle.modules} activeId={activeId} onSelect={handleModuleSelect} />
+                  <MobileNav
+                    modules={bundle.modules}
+                    activeId={activeId}
+                    onSelect={handleModuleSelect}
+                    accentBg={bundle.id === "linux" ? "bg-emerald-500/15" : "bg-violet-500/15"}
+                  />
                 </div>
+
+                {nextUp && (
+                  <section
+                    className={`mt-8 flex flex-col gap-5 overflow-hidden rounded-2xl border p-6 md:flex-row md:items-center md:justify-between ${bundle.accent.border} bg-gradient-to-r from-slate-900 via-slate-900 to-slate-900`}
+                  >
+                    <div className="pointer-events-none absolute hidden" />
+                    <div className="flex items-center gap-4">
+                      <span
+                        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg ${bundle.accent.gradient}`}
+                      >
+                        <PlayCircle size={26} />
+                      </span>
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                          Continue learning
+                        </div>
+                        <div className="mt-0.5 text-lg font-bold text-white">
+                          {nextUp.mod.title}
+                        </div>
+                        <div className="mt-0.5 text-sm text-slate-400">
+                          Up next: {nextUp.mod.lessons[nextUp.index].name} ·{" "}
+                          {lessonDuration(nextUp.mod.lessons[nextUp.index])} min
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => openLesson(nextUp.mod.id, nextUp.index)}
+                      className={`inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 ${bundle.accent.gradient}`}
+                    >
+                      Start lesson
+                      <ArrowRight size={16} />
+                    </button>
+                  </section>
+                )}
+
                 <div className="mb-4 mt-8 flex items-center justify-between lg:mt-8">
                   <h2 className="text-xl font-bold text-white">Course Modules</h2>
                 </div>
@@ -133,6 +196,8 @@ export default function CourseDashboard({ bundle, onBack }: { bundle: CourseBund
                       mod={m}
                       onOpenLesson={(i) => openLesson(m.id, i)}
                       isDone={(i) => isLessonDone(m.id, i)}
+                      defaultExpanded={nextUp?.mod.id === m.id}
+                      nextLessonIndex={nextUp?.mod.id === m.id ? nextUp.index : undefined}
                     />
                   ))}
                 </div>

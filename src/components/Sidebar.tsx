@@ -13,6 +13,7 @@ export default function Sidebar({ bundle, activeId, onSelect }: SidebarProps) {
   const totalDone = modules.reduce((acc, m) => acc + lessonsDoneCount(m), 0)
   const totalLessons = modules.reduce((acc, m) => acc + lessonCount(m), 0)
   const pct = Math.round((totalDone / totalLessons) * 100)
+  const accentBar = bundle.id === "linux" ? "bg-gradient-to-r from-emerald-500 to-cyan-500" : "bg-gradient-to-r from-violet-500 to-fuchsia-500"
 
   return (
     <aside className="hidden w-80 shrink-0 lg:block">
@@ -20,11 +21,11 @@ export default function Sidebar({ bundle, activeId, onSelect }: SidebarProps) {
         <div className="border-b border-slate-800 p-5">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-semibold text-white">Course Progress</span>
-            <span className="text-sm font-bold text-emerald-400">{pct}%</span>
+            <span className={`text-sm font-bold ${bundle.accent.text}`}>{pct}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-800">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all"
+              className={`h-full rounded-full transition-all ${accentBar}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -47,14 +48,16 @@ export default function Sidebar({ bundle, activeId, onSelect }: SidebarProps) {
                 onClick={() => onSelect(m.id)}
                 className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
                   active
-                    ? "border-emerald-500/40 bg-emerald-500/10"
+                    ? `border-current ${bundle.accent.text}`
                     : "border-transparent hover:border-slate-700 hover:bg-slate-800/50"
                 }`}
               >
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
                     active
-                      ? "bg-emerald-500/20 text-emerald-300"
+                      ? bundle.id === "linux"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : "bg-violet-500/20 text-violet-300"
                       : "bg-slate-800 text-slate-400"
                   }`}
                 >
@@ -69,7 +72,7 @@ export default function Sidebar({ bundle, activeId, onSelect }: SidebarProps) {
                     {m.title}
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <meta.icon size={12} className={active ? "text-emerald-400" : ""} />
+                    <meta.icon size={12} className={active ? bundle.accent.text : ""} />
                     {done}/{total} lessons
                   </span>
                 </span>

@@ -49,7 +49,7 @@ export default function Header({ bundle }: { bundle: CourseBundle }) {
           <Stat label="Lessons" value={course.stats.lessons} icon={BookOpen} />
           <Stat label="Est. Hours" value={course.stats.hours} icon={Clock} />
           <Stat label="Level" value={course.stats.level.split("→")[0]} icon={Signal} />
-          <Stat label="Modules" value={`${course.stats.modules}/12`} icon={Layers} />
+          <Stat label="Modules" value={course.stats.modules} icon={Layers} />
         </div>
       </div>
     </header>

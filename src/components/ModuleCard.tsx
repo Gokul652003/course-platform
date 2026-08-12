@@ -1,6 +1,7 @@
+import { useState } from "react"
 import { statusMeta, lessonCount, lessonsDoneCount } from "../data/courseData.ts"
 import type { StatusMeta } from "../data/courseData.ts"
-import { Clock, ChevronRight, Check, Lock } from "lucide-react"
+import { Clock, ChevronRight, ChevronDown, Check, Lock } from "lucide-react"
 import type { Lesson, Module, ModuleStatus } from "../types.ts"
 
 const barGradient = {
@@ -21,9 +22,10 @@ interface LessonTileProps {
   status: ModuleStatus
   done: boolean
   onOpen: (index: number) => void
+  highlighted?: boolean
 }
 
-function LessonTile({ lesson, index, status, done, onOpen }: LessonTileProps) {
+function LessonTile({ lesson, index, status, done, onOpen, highlighted }: LessonTileProps) {
   const isInProgress = status === "in_progress"
   const hasContent = lesson !== null && typeof lesson === "object" && !!lesson.content
   const pending = isInProgress && !done
@@ -36,7 +38,9 @@ function LessonTile({ lesson, index, status, done, onOpen }: LessonTileProps) {
       disabled={!hasContent}
       className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
         hasContent
-          ? "border-slate-800 bg-slate-950/50 hover:-translate-y-0.5 hover:border-emerald-500/40 hover:bg-slate-800/50 hover:shadow-lg hover:shadow-emerald-500/5"
+          ? highlighted
+            ? "border-amber-400/60 bg-amber-500/5 hover:border-amber-400 hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/10"
+            : "border-slate-800 bg-slate-950/50 hover:-translate-y-0.5 hover:border-emerald-500/40 hover:bg-slate-800/50 hover:shadow-lg hover:shadow-emerald-500/5"
           : locked
           ? "border-slate-800/60 bg-slate-950/20 cursor-default"
           : "border-slate-800/60 bg-slate-950/20 cursor-default"
@@ -49,11 +53,13 @@ function LessonTile({ lesson, index, status, done, onOpen }: LessonTileProps) {
             : pending
             ? "border-2 border-amber-400/70 text-amber-300"
             : hasContent
-            ? "bg-slate-800 text-slate-300"
+            ? highlighted
+              ? "bg-amber-400 text-slate-950"
+              : "bg-slate-800 text-slate-300"
             : "bg-slate-800/60 text-slate-500"
         }`}
       >
-        {done ? <Check size={14} strokeWidth={3} /> : locked ? <Lock size={13} /> : index + 1}
+        {done ? <Check size={14} strokeWidth={3} /> : locked ? <Lock size={13} /> : `${index + 1}`}
       </span>
 
       <span className="min-w-0 flex-1">
@@ -86,6 +92,11 @@ function LessonTile({ lesson, index, status, done, onOpen }: LessonTileProps) {
         </span>
       </span>
 
+      {highlighted && (
+        <span className="shrink-0 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-400/30">
+          Up next
+        </span>
+      )}
       {hasContent && (
         <ChevronRight
           size={16}
@@ -100,21 +111,26 @@ interface ModuleCardProps {
   mod: Module
   onOpenLesson: (index: number) => void
   isDone?: (index: number) => boolean
+  defaultExpanded?: boolean
+  nextLessonIndex?: number
 }
 
-export default function ModuleCard({ mod, onOpenLesson, isDone }: ModuleCardProps) {
+export default function ModuleCard({ mod, onOpenLesson, isDone, defaultExpanded = false, nextLessonIndex }: ModuleCardProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const meta: StatusMeta = statusMeta[mod.status]
   const total = lessonCount(mod)
   const doneCount = lessonsDoneCount(mod)
   const barPct = Math.round((doneCount / total) * 100)
   const showTiles =
     mod.status === "in_progress" || mod.lessons.some((l) => typeof l === "object" && l.content)
+  const remaining = total - doneCount
+  const isNext = nextLessonIndex !== undefined && !isDone?.(nextLessonIndex)
 
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 transition-all hover:border-slate-700 hover:bg-slate-900">
-      <div className={`h-1 ${accentBar[meta.color]}`} />
+      <div className={`h-1 ${isNext ? "bg-gradient-to-r from-amber-400 to-orange-500" : accentBar[meta.color]}`} />
 
-      <div className="flex items-center gap-4 p-5 pb-4">
+      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-4 p-5 pb-4 text-left">
         <div
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ${meta.ring} ${meta.color === "emerald" ? "bg-emerald-500/15" : meta.color === "amber" ? "bg-amber-500/15" : "bg-slate-800/80"}`}
         >
@@ -131,10 +147,24 @@ export default function ModuleCard({ mod, onOpenLesson, isDone }: ModuleCardProp
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Module {mod.id}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Module {mod.id}
+            </span>
+            {isNext && (
+              <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-400/30">
+                You're here
+              </span>
+            )}
           </div>
           <h3 className="truncate text-lg font-semibold text-white">{mod.title}</h3>
+          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+            <span>
+              {doneCount} / {total} lessons · {barPct}%
+            </span>
+            <span className="h-3 w-px bg-slate-700" />
+            <span>{remaining > 0 ? `${remaining} left` : "Complete"}</span>
+          </div>
         </div>
 
         <span
@@ -143,61 +173,67 @@ export default function ModuleCard({ mod, onOpenLesson, isDone }: ModuleCardProp
           <meta.icon size={12} className="mr-1 inline" />
           {meta.label}
         </span>
-      </div>
+
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
 
       <div className="px-5 pb-1">
-        <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-          <span>
-            {doneCount} / {total} lessons
-          </span>
-          <span className="font-semibold text-slate-400">{barPct}%</span>
-        </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
           <div
-            className={`h-full rounded-full transition-all ${barGradient[meta.color]}`}
+            className={`h-full rounded-full transition-all ${
+              isNext
+                ? "bg-gradient-to-r from-amber-400 to-orange-500"
+                : barGradient[meta.color]
+            }`}
             style={{ width: `${barPct}%` }}
           />
         </div>
       </div>
 
-      <div className="mt-4 flex-1 px-4 pb-4">
-        {showTiles ? (
-          <div>
-            <div className="grid gap-2 sm:grid-cols-1">
-              {mod.lessons.map((l, i) => (
-                <LessonTile
-                  key={i}
-                  lesson={l}
-                  index={i}
-                  status={mod.status}
-                  done={isDone ? isDone(i) : (l && l.done) === true}
-                  onOpen={onOpenLesson}
-                />
-              ))}
+      {expanded && (
+        <div className="mt-4 flex-1 px-4 pb-4">
+          {showTiles ? (
+            <div>
+              <div className="grid gap-2 sm:grid-cols-1">
+                {mod.lessons.map((l, i) => (
+                  <LessonTile
+                    key={i}
+                    lesson={l}
+                    index={i}
+                    status={mod.status}
+                    done={isDone ? isDone(i) : (l && l.done) === true}
+                    onOpen={onOpenLesson}
+                    highlighted={i === nextLessonIndex}
+                  />
+                ))}
+              </div>
             </div>
-            {mod.status === "in_progress" && total - doneCount > 0 && (
-              <p className="mt-3 flex items-center gap-1.5 px-2 text-xs font-medium text-amber-400/90">
-                <Clock size={13} />
-                {total - doneCount} lessons remaining in this module
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between px-2 py-3">
-            <span className="text-sm text-slate-400">{total} lessons</span>
-            <span className="flex gap-1.5">
-              {Array.from({ length: Math.min(total, 6) }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-1.5 w-5 rounded-full ${
-                    meta.color === "emerald" ? "bg-emerald-500/70" : "bg-slate-800"
-                  }`}
-                />
-              ))}
-            </span>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex items-center justify-between px-2 py-3">
+              <span className="text-sm text-slate-400">{total} lessons</span>
+              <span className="flex gap-1.5">
+                {Array.from({ length: Math.min(total, 6) }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-1.5 w-5 rounded-full ${
+                      meta.color === "emerald" ? "bg-emerald-500/70" : "bg-slate-800"
+                    }`}
+                  />
+                ))}
+              </span>
+            </div>
+          )}
+          {showTiles && mod.status === "in_progress" && remaining > 0 && (
+            <p className="mt-3 flex items-center gap-1.5 px-2 text-xs font-medium text-amber-400/90">
+              <Clock size={13} />
+              {remaining} lessons remaining in this module
+            </p>
+          )}
+        </div>
+      )}
     </article>
   )
 }
