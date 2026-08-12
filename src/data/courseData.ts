@@ -18,7 +18,7 @@ import { CheckCircle2, Clock, BookOpen } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { Course, Lesson, Module } from "../types"
 
-export const modules: Module[] = [
+export const linuxModules: Module[] = [
   module1,
   module2,
   module3,
@@ -58,7 +58,7 @@ export function lessonDuration(l: Lesson): number {
   return l.minutes ?? 8
 }
 
-export const course: Course = {
+export const linuxCourse: Course = {
   title: "Complete Linux Course",
   tagline: "From absolute beginner to developer-ready Linux",
   description:
@@ -66,9 +66,9 @@ export const course: Course = {
   stats: {
     modules: 16,
     level: "Beginner → Advanced",
-    lessons: modules.reduce((acc, m) => acc + lessonCount(m), 0),
+    lessons: linuxModules.reduce((acc, m) => acc + lessonCount(m), 0),
     hours: Math.round(
-      modules.reduce((acc, m) => acc + m.lessons.reduce((a, l) => a + lessonDuration(l), 0), 0) /
+      linuxModules.reduce((acc, m) => acc + m.lessons.reduce((a, l) => a + lessonDuration(l), 0), 0) /
         60,
     ),
   },
