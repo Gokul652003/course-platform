@@ -12,28 +12,32 @@ body {
   @apply bg-slate-950 text-slate-200 antialiased;
 }
 
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
 .prose-mod {
   @apply text-[15px] leading-7 text-slate-300;
 }
 
 .prose-mod h2 {
-  @apply mb-3 mt-8 border-b border-slate-800 pb-2 text-xl font-bold text-white first:mt-0;
+  @apply mb-3 mt-10 border-b border-slate-800 pb-2.5 text-xl font-bold text-white first:mt-0;
 }
 
 .prose-mod h3 {
-  @apply mb-2 mt-6 text-base font-semibold text-white;
+  @apply mb-2 mt-8 text-base font-semibold text-white;
 }
 
 .prose-mod p {
-  @apply my-3;
+  @apply my-4;
 }
 
 .prose-mod ul {
-  @apply my-3 list-disc space-y-1.5 pl-5;
+  @apply my-4 list-disc space-y-2 pl-5;
 }
 
 .prose-mod ol {
-  @apply my-3 list-decimal space-y-1.5 pl-5;
+  @apply my-4 list-decimal space-y-2 pl-5;
 }
 
 .prose-mod li::marker {
@@ -49,7 +53,7 @@ body {
 }
 
 .prose-mod pre {
-  @apply my-4 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-[13px] leading-6 text-emerald-200;
+  @apply my-5 overflow-x-auto rounded-xl border border-slate-800 bg-[#0a0f1e] p-5 text-[13px] leading-6 text-emerald-200 shadow-inner;
 }
 
 .prose-mod code {
@@ -61,7 +65,7 @@ body {
 }
 
 .prose-mod blockquote {
-  @apply my-4 rounded-r-xl border-l-4 border-emerald-500 bg-emerald-500/10 px-4 py-3 text-slate-200;
+  @apply my-5 rounded-r-xl border-l-4 border-emerald-500 bg-emerald-500/10 px-5 py-3.5 text-slate-200;
 }
 
 .prose-mod blockquote p {
@@ -70,4 +74,54 @@ body {
 
 .prose-mod :not(pre) > code {
   @apply text-cyan-300;
+}
+
+.prose-mod hr {
+  @apply my-8 border-slate-800;
+}
+
+.prose-mod table {
+  @apply my-5 w-full border-collapse overflow-hidden rounded-xl text-sm;
+}
+
+.prose-mod th {
+  @apply border border-slate-800 bg-slate-900 px-3 py-2 text-left font-semibold text-slate-200;
+}
+
+.prose-mod td {
+  @apply border border-slate-800 px-3 py-2 text-slate-300;
+}
+
+.prose-mod a {
+  @apply text-emerald-400 underline underline-offset-2 hover:text-emerald-300;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
 }

@@ -48,7 +48,7 @@ function LessonTile({ lesson, index, status, done, onOpen, highlighted }: Lesson
       }`}
     >
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-all ${
           done
             ? "bg-emerald-500 text-slate-950"
             : pending
@@ -129,12 +129,12 @@ export default function ModuleCard({ mod, courseId, onOpenLesson, defaultExpande
   const isNext = nextLessonIndex !== undefined && !(courseId && isDone(courseId, mod.id, nextLessonIndex))
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 transition-all hover:border-slate-700 hover:bg-slate-900">
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 transition-all hover:border-slate-700 hover:bg-slate-900 hover:shadow-xl">
       <div className={`h-1 ${isNext ? "bg-gradient-to-r from-amber-400 to-orange-500" : accentBar[meta.color]}`} />
 
-      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-4 p-5 pb-4 text-left">
+      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-4 p-5 pb-4 text-left transition-all hover:bg-slate-800/30">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ${meta.ring} ${meta.color === "emerald" ? "bg-emerald-500/15" : meta.color === "amber" ? "bg-amber-500/15" : "bg-slate-800/80"}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 transition-all ${meta.ring} ${meta.color === "emerald" ? "bg-emerald-500/15" : meta.color === "amber" ? "bg-amber-500/15" : "bg-slate-800/80"}`}
         >
           <meta.icon
             size={22}
