@@ -205,7 +205,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <footer className="border-t border-slate-800 pt-6 pb-10 text-center text-xs text-slate-500">
+          <footer className="border-t border-slate-200 pt-6 pb-10 text-center text-xs text-slate-500 dark:border-slate-800">
             Course Platform · Built with React + Tailwind
           </footer>
         </div>
