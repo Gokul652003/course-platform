@@ -3,18 +3,19 @@ import { statusMeta, lessonCount } from "../data/courseData.ts"
 import type { StatusMeta } from "../data/courseData.ts"
 import { Clock, ChevronRight, ChevronDown, Check, Lock } from "lucide-react"
 import { useCourseProgress } from "../data/progress.tsx"
+import ProgressBar from "./ProgressBar.tsx"
 import type { Lesson, Module, ModuleStatus } from "../types.ts"
 
 const barGradient = {
-  emerald: "bg-gradient-to-r from-emerald-400 to-emerald-600",
-  amber: "bg-gradient-to-r from-amber-400 to-amber-600",
-  slate: "bg-slate-700",
+  emerald: "from-emerald-400 to-emerald-600",
+  amber: "from-amber-400 to-amber-600",
+  slate: "from-slate-400 to-slate-400 dark:from-slate-700 dark:to-slate-700",
 }
 
 const accentBar = {
   emerald: "bg-gradient-to-r from-emerald-500 to-cyan-500",
   amber: "bg-gradient-to-r from-amber-500 to-orange-500",
-  slate: "bg-slate-700",
+  slate: "bg-slate-300 dark:bg-slate-700",
 }
 
 interface LessonTileProps {
@@ -122,106 +123,95 @@ export default function ModuleCard({ mod, courseId, onOpenLesson, defaultExpande
   const meta: StatusMeta = statusMeta[mod.status]
   const total = lessonCount(mod)
   const doneAmt = courseId ? countDone(courseId, mod.id) : 0
-  const barPct = Math.round((doneAmt / total) * 100)
+  const barPct = total ? Math.round((doneAmt / total) * 100) : 0
   const showTiles =
     mod.status === "in_progress" || mod.lessons.some((l) => typeof l === "object" && l.content)
   const remaining = total - doneAmt
   const isNext = nextLessonIndex !== undefined && !(courseId && isDone(courseId, mod.id, nextLessonIndex))
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 transition-all hover:border-slate-700 hover:bg-slate-900 hover:shadow-xl">
-      <div className={`h-1 ${isNext ? "bg-gradient-to-r from-amber-400 to-orange-500" : accentBar[meta.color]}`} />
+    <article className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/50 shadow-xl dark:border-slate-800 dark:bg-slate-900/50">
+      <div className={`h-1.5 ${isNext ? "bg-gradient-to-r from-amber-400 to-orange-500" : accentBar[meta.color]}`} />
 
-      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-4 p-5 pb-4 text-left transition-all hover:bg-slate-800/30">
+      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-5 p-6 pb-5 text-left transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/30 md:p-7 md:pb-5">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 transition-all ${meta.ring} ${meta.color === "emerald" ? "bg-emerald-500/15" : meta.color === "amber" ? "bg-amber-500/15" : "bg-slate-800/80"}`}
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-1 transition-all ${meta.ring} ${meta.color === "emerald" ? "bg-emerald-500/15" : meta.color === "amber" ? "bg-amber-500/15" : "bg-slate-200/80 dark:bg-slate-800/80"}`}
         >
           <meta.icon
-            size={22}
+            size={26}
             className={
               meta.color === "emerald"
-                ? "text-emerald-400"
+                ? "text-emerald-600 dark:text-emerald-400"
                 : meta.color === "amber"
-                ? "text-amber-400"
-                : "text-slate-400"
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-slate-500 dark:text-slate-400"
             }
           />
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Module {mod.id}
             </span>
             {isNext && (
-              <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-400/30">
+              <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-400/30 dark:text-amber-300">
                 You're here
               </span>
             )}
           </div>
-          <h3 className="truncate text-lg font-semibold text-white">{mod.title}</h3>
-          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+          <h3 className="truncate text-xl font-bold text-slate-900 md:text-2xl dark:text-white">{mod.title}</h3>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span>
               {doneAmt} / {total} lessons · {barPct}%
             </span>
-            <span className="h-3 w-px bg-slate-700" />
+            <span className="h-3 w-px bg-slate-300 dark:bg-slate-700" />
             <span>{remaining > 0 ? `${remaining} left` : "Complete"}</span>
           </div>
         </div>
 
         <span
-          className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium ${meta.badge}`}
+          className={`hidden shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium sm:inline-flex ${meta.badge}`}
         >
           <meta.icon size={12} className="mr-1 inline" />
           {meta.label}
         </span>
 
         <ChevronDown
-          size={18}
-          className={`shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
+          size={20}
+          className={`shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${expanded ? "rotate-180" : ""}`}
         />
       </button>
 
-      <div className="px-5 pb-1">
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-          <div
-            className={`h-full rounded-full transition-all ${
-              isNext
-                ? "bg-gradient-to-r from-amber-400 to-orange-500"
-                : barGradient[meta.color]
-            }`}
-            style={{ width: `${barPct}%` }}
-          />
-        </div>
+      <div className="px-6 pb-1 md:px-7">
+        <ProgressBar pct={barPct} gradient={isNext ? "from-amber-400 to-orange-500" : barGradient[meta.color]} />
       </div>
 
       {expanded && (
-        <div className="mt-4 flex-1 px-4 pb-4">
+        <div className="mt-5 flex-1 px-5 pb-6 md:px-6">
           {showTiles ? (
-            <div>
-              <div className="grid gap-2 sm:grid-cols-1">
-                {mod.lessons.map((l, i) => (
-                  <LessonTile
-                    key={i}
-                    lesson={l}
-                    index={i}
-                    status={mod.status}
-                    done={courseId ? isDone(courseId, mod.id, i) : (l && l.done) === true}
-                    onOpen={onOpenLesson}
-                    highlighted={i === nextLessonIndex}
-                  />
-                ))}
-              </div>
+            <div className="grid gap-2.5 sm:grid-cols-1">
+              {mod.lessons.map((l, i) => (
+                <LessonTile
+                  key={i}
+                  lesson={l}
+                  index={i}
+                  status={mod.status}
+                  done={courseId ? isDone(courseId, mod.id, i) : (l && l.done) === true}
+                  onOpen={onOpenLesson}
+                  highlighted={i === nextLessonIndex}
+                />
+              ))}
             </div>
           ) : (
-            <div className="flex items-center justify-between px-2 py-3">
-              <span className="text-sm text-slate-400">{total} lessons</span>
+            <div className="flex items-center justify-between rounded-xl bg-slate-100/60 px-4 py-4 dark:bg-slate-950/40">
+              <span className="text-sm text-slate-500 dark:text-slate-400">{total} lessons</span>
               <span className="flex gap-1.5">
                 {Array.from({ length: Math.min(total, 6) }).map((_, i) => (
                   <span
                     key={i}
                     className={`h-1.5 w-5 rounded-full ${
-                      meta.color === "emerald" ? "bg-emerald-500/70" : "bg-slate-800"
+                      meta.color === "emerald" ? "bg-emerald-500/70" : "bg-slate-200 dark:bg-slate-800"
                     }`}
                   />
                 ))}
