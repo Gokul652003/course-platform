@@ -81,8 +81,8 @@ export default function LessonPage() {
   if (!bundle || !mod || !lesson || lessonIndex === "") {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <p className="text-slate-400">Lesson not found.</p>
-        <Link to={`/course/${courseId}`} className="mt-4 inline-block text-sm font-medium text-white underline">
+        <p className="text-slate-500 dark:text-slate-400">Lesson not found.</p>
+        <Link to={`/course/${courseId}`} className="mt-4 inline-block text-sm font-medium text-slate-900 underline dark:text-white">
           Back to course
         </Link>
       </div>
