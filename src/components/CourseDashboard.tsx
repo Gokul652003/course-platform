@@ -25,7 +25,7 @@ function MobileNav({ modules, activeId, onSelect, accentBg }: {
           className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             m.id === activeId
               ? `border-transparent text-slate-950 ${accentBg} shadow-md`
-              : "border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-700 hover:bg-slate-800"
+              : "border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800"
           }`}
         >
           M{m.id}
@@ -184,13 +184,13 @@ export default function CourseDashboard() {
                     <PlayCircle size={26} />
                   </span>
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       Continue learning
                     </div>
-                    <div className="mt-0.5 text-lg font-bold text-white">
+                    <div className="mt-0.5 text-lg font-bold text-slate-900 dark:text-white">
                       {nextUp.mod.title}
                     </div>
-                    <div className="mt-0.5 text-sm text-slate-400">
+                    <div className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
                       Up next: {nextUp.mod.lessons[nextUp.index].name} ·{" "}
                       {lessonDuration(nextUp.mod.lessons[nextUp.index])} min
                     </div>
