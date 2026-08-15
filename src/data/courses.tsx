@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
@@ -9,6 +9,7 @@ import { nextjsModules, nextjsCourse } from "./nextjsCourseData"
 import { jsModules, jsCourse } from "./jsCourseData"
 import { jestModules, jestCourse } from "./jestCourseData"
 import { gitModules, gitCourse } from "./gitCourseData"
+import { reactModules, reactCourse } from "./reactCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -96,6 +97,14 @@ function GitGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 shadow-lg shadow-red-500/20">
       <GitBranch size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function ReactGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg shadow-cyan-500/20">
+      <Atom size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -277,6 +286,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-red-500 to-orange-600",
       text: "text-red-600 dark:text-red-400",
       border: "border-red-500/30",
+    },
+  },
+  {
+    id: "react",
+    title: reactCourse.title,
+    tagline: reactCourse.tagline,
+    description: reactCourse.description,
+    modules: reactModules,
+    course: reactCourse,
+    icon: <ReactGlyph />,
+    tags: [
+      "Beginner → Professional",
+      `${reactCourse.stats.lessons} lessons`,
+      "Hooks & patterns",
+      "Testing included",
+    ],
+    accent: {
+      gradient: "from-cyan-500 to-blue-500",
+      text: "text-cyan-600 dark:text-cyan-400",
+      border: "border-cyan-500/30",
     },
   },
 ]
