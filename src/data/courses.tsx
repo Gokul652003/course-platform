@@ -1,9 +1,10 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
+import { dockerModules, dockerCourse } from "./dockerCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -51,6 +52,14 @@ function HtmlGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-orange-600 shadow-lg shadow-rose-500/20">
       <CodeXml size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function DockerGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/20">
+      <Container size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -132,6 +141,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-rose-500 to-orange-600",
       text: "text-rose-600 dark:text-rose-400",
       border: "border-rose-500/30",
+    },
+  },
+  {
+    id: "docker",
+    title: dockerCourse.title,
+    tagline: dockerCourse.tagline,
+    description: dockerCourse.description,
+    modules: dockerModules,
+    course: dockerCourse,
+    icon: <DockerGlyph />,
+    tags: [
+      "Beginner → Intermediate",
+      `${dockerCourse.stats.lessons} lessons`,
+      "Compose & networking",
+      "Containers",
+    ],
+    accent: {
+      gradient: "from-sky-500 to-blue-600",
+      text: "text-sky-600 dark:text-sky-400",
+      border: "border-sky-500/30",
     },
   },
 ]
