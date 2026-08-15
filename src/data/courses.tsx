@@ -118,12 +118,16 @@ export const courses: CourseBundle[] = [
     id: "html",
     title: htmlCourse.title,
     tagline: htmlCourse.tagline,
-    description:
-      "A hands-on journey through HTML — covering document structure, semantic markup, forms, media, and accessibility.",
+    description: htmlCourse.description,
     modules: htmlModules,
     course: htmlCourse,
     icon: <HtmlGlyph />,
-    tags: ["Beginner", `${htmlCourse.stats.lessons} lessons`, "Markup fundamentals"],
+    tags: [
+      "Beginner",
+      `${htmlCourse.stats.lessons} lessons`,
+      "Markup fundamentals",
+      "Accessibility",
+    ],
     accent: {
       gradient: "from-rose-500 to-orange-600",
       text: "text-rose-600 dark:text-rose-400",
