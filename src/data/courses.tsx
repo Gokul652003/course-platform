@@ -1,11 +1,12 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
 import { nextjsModules, nextjsCourse } from "./nextjsCourseData"
+import { jsModules, jsCourse } from "./jsCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -69,6 +70,14 @@ function NextjsGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-lg shadow-zinc-500/20">
       <Triangle size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function JsGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg shadow-yellow-500/20">
+      <Braces size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -190,6 +199,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-zinc-700 to-zinc-950",
       text: "text-zinc-700 dark:text-zinc-300",
       border: "border-zinc-500/30",
+    },
+  },
+  {
+    id: "javascript",
+    title: jsCourse.title,
+    tagline: jsCourse.tagline,
+    description: jsCourse.description,
+    modules: jsModules,
+    course: jsCourse,
+    icon: <JsGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${jsCourse.stats.lessons} lessons`,
+      "Event loop & closures",
+      "Core language",
+    ],
+    accent: {
+      gradient: "from-yellow-400 to-amber-500",
+      text: "text-amber-600 dark:text-amber-400",
+      border: "border-amber-500/30",
     },
   },
 ]
