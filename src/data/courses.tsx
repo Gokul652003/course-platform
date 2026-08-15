@@ -1,10 +1,11 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
+import { nextjsModules, nextjsCourse } from "./nextjsCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -60,6 +61,14 @@ function DockerGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/20">
       <Container size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function NextjsGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-lg shadow-zinc-500/20">
+      <Triangle size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -161,6 +170,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-sky-500 to-blue-600",
       text: "text-sky-600 dark:text-sky-400",
       border: "border-sky-500/30",
+    },
+  },
+  {
+    id: "nextjs",
+    title: nextjsCourse.title,
+    tagline: nextjsCourse.tagline,
+    description: nextjsCourse.description,
+    modules: nextjsModules,
+    course: nextjsCourse,
+    icon: <NextjsGlyph />,
+    tags: [
+      "Intermediate",
+      `${nextjsCourse.stats.lessons} lessons`,
+      "App Router",
+      "Full-stack React",
+    ],
+    accent: {
+      gradient: "from-zinc-700 to-zinc-950",
+      text: "text-zinc-700 dark:text-zinc-300",
+      border: "border-zinc-500/30",
     },
   },
 ]
