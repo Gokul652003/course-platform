@@ -10,6 +10,8 @@ import { jsModule9 } from "./jsModule9Content"
 import { jsModule10 } from "./jsModule10Content"
 import { jsModule11 } from "./jsModule11Content"
 import { jsModule12 } from "./jsModule12Content"
+import { jsModule13 } from "./jsModule13Content"
+import { jsModule14 } from "./jsModule14Content"
 import { lessonCount, lessonDuration } from "./courseData"
 import type { Course, Module } from "../types"
 
@@ -26,13 +28,15 @@ export const jsModules: Module[] = [
   jsModule10,
   jsModule11,
   jsModule12,
+  jsModule13,
+  jsModule14,
 ]
 
 export const jsCourse: Course = {
   title: "Complete JavaScript Course",
   tagline: "From your first console.log to the event loop and closures — the full language, end to end",
   description:
-    "A hands-on, end-to-end journey through JavaScript — covering fundamentals and how the engine actually runs your code, operators and control flow, functions, scope and closures, objects and prototypes, arrays and iteration, this/classes/OOP, asynchronous JavaScript, the event loop and runtime internals, error handling, modules/iterators/generators, and a final capstone tying every concept together.",
+    "A hands-on, end-to-end journey through JavaScript — covering fundamentals and how the engine actually runs your code, operators and control flow, functions, scope and closures, objects and prototypes, arrays and iteration, this/classes/OOP, asynchronous JavaScript, the event loop and runtime internals, error handling, modules/iterators/generators, built-in objects (Numbers, Strings, Dates, JSON), modern syntax and meta-programming (optional chaining, Proxy/Reflect, WeakMap/WeakSet), and a final capstone tying every concept together.",
   stats: {
     modules: jsModules.length,
     level: "Beginner → Advanced",
