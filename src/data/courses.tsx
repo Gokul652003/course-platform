@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
@@ -7,6 +7,7 @@ import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
 import { nextjsModules, nextjsCourse } from "./nextjsCourseData"
 import { jsModules, jsCourse } from "./jsCourseData"
+import { jestModules, jestCourse } from "./jestCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -78,6 +79,14 @@ function JsGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg shadow-yellow-500/20">
       <Braces size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function JestGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-600 to-pink-700 shadow-lg shadow-rose-500/20">
+      <TestTube size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -219,6 +228,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-yellow-400 to-amber-500",
       text: "text-amber-600 dark:text-amber-400",
       border: "border-amber-500/30",
+    },
+  },
+  {
+    id: "jest",
+    title: jestCourse.title,
+    tagline: jestCourse.tagline,
+    description: jestCourse.description,
+    modules: jestModules,
+    course: jestCourse,
+    icon: <JestGlyph />,
+    tags: [
+      "Beginner → Professional",
+      `${jestCourse.stats.lessons} lessons`,
+      "Mocking & coverage",
+      "CI-ready",
+    ],
+    accent: {
+      gradient: "from-rose-600 to-pink-700",
+      text: "text-rose-600 dark:text-rose-400",
+      border: "border-rose-500/30",
     },
   },
 ]
