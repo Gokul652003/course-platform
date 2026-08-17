@@ -137,9 +137,9 @@ export const courses: CourseBundle[] = [
     course: kotlinCourse,
     icon: <KotlinGlyph />,
     tags: [
-      "Beginner → Intermediate",
+      "Beginner → Advanced",
       `${kotlinCourse.stats.lessons} lessons`,
-      "Phase 1: Fundamentals",
+      "Compose & Architecture",
       "JVM",
     ],
     accent: {
