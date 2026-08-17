@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { GraduationCap, ChevronRight, LogOut, Sun, Moon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useAuth } from "../data/auth.tsx"
 import { useTheme } from "../data/theme.tsx"
+import SearchPalette, { SearchTrigger } from "./SearchPalette.tsx"
 
 export interface Crumb {
   label: string
@@ -74,8 +76,22 @@ function AuthControl() {
 }
 
 export default function TopNav({ crumbs = [], right }: { crumbs?: Crumb[]; right?: ReactNode }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
+
   return (
     <nav className="flex items-center justify-between gap-4 py-6">
+      <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
       <div className="flex min-w-0 items-center gap-2">
         <Link to="/" className="group flex shrink-0 items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 text-white shadow-lg shadow-emerald-500/20 transition-transform group-hover:scale-110">
@@ -106,6 +122,7 @@ export default function TopNav({ crumbs = [], right }: { crumbs?: Crumb[]; right
 
       <div className="flex shrink-0 items-center gap-2">
         {right}
+        <SearchTrigger onClick={() => setSearchOpen(true)} />
         <ThemeToggle />
         <AuthControl />
       </div>
