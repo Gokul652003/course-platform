@@ -120,10 +120,12 @@ interface ModuleCardProps {
 export default function ModuleCard({ mod, courseId, onOpenLesson, defaultExpanded = false, nextLessonIndex }: ModuleCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const { isDone, doneCount: countDone } = useCourseProgress()
-  const meta: StatusMeta = statusMeta[mod.status]
   const total = lessonCount(mod)
   const doneAmt = courseId ? countDone(courseId, mod.id) : 0
   const barPct = total ? Math.round((doneAmt / total) * 100) : 0
+  const displayStatus: ModuleStatus =
+    total > 0 && doneAmt === total ? "complete" : doneAmt > 0 ? "in_progress" : mod.status
+  const meta: StatusMeta = statusMeta[displayStatus]
   const showTiles =
     mod.status === "in_progress" || mod.lessons.some((l) => typeof l === "object" && l.content)
   const remaining = total - doneAmt
