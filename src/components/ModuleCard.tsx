@@ -124,7 +124,13 @@ export default function ModuleCard({ mod, courseId, onOpenLesson, defaultExpande
   const doneAmt = courseId ? countDone(courseId, mod.id) : 0
   const barPct = total ? Math.round((doneAmt / total) * 100) : 0
   const displayStatus: ModuleStatus =
-    total > 0 && doneAmt === total ? "complete" : doneAmt > 0 ? "in_progress" : mod.status
+    total > 0 && doneAmt === total
+      ? "complete"
+      : doneAmt > 0
+      ? "in_progress"
+      : mod.status === "upcoming"
+      ? "upcoming"
+      : "in_progress"
   const meta: StatusMeta = statusMeta[displayStatus]
   const showTiles =
     mod.status === "in_progress" || mod.lessons.some((l) => typeof l === "object" && l.content)
