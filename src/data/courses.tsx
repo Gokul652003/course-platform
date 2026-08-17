@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
@@ -8,6 +8,7 @@ import { dockerModules, dockerCourse } from "./dockerCourseData"
 import { nextjsModules, nextjsCourse } from "./nextjsCourseData"
 import { jsModules, jsCourse } from "./jsCourseData"
 import { jestModules, jestCourse } from "./jestCourseData"
+import { gitModules, gitCourse } from "./gitCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -87,6 +88,14 @@ function JestGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-600 to-pink-700 shadow-lg shadow-rose-500/20">
       <TestTube size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function GitGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 shadow-lg shadow-red-500/20">
+      <GitBranch size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -248,6 +257,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-rose-600 to-pink-700",
       text: "text-rose-600 dark:text-rose-400",
       border: "border-rose-500/30",
+    },
+  },
+  {
+    id: "git",
+    title: gitCourse.title,
+    tagline: gitCourse.tagline,
+    description: gitCourse.description,
+    modules: gitModules,
+    course: gitCourse,
+    icon: <GitGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${gitCourse.stats.lessons} lessons`,
+      "Rebasing & internals",
+      "Team workflows",
+    ],
+    accent: {
+      gradient: "from-red-500 to-orange-600",
+      text: "text-red-600 dark:text-red-400",
+      border: "border-red-500/30",
     },
   },
 ]
