@@ -1,7 +1,8 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
+import { goModules, goCourse } from "./goCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
@@ -41,6 +42,14 @@ function KotlinGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/20">
       <Code2 size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function GoGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-lg shadow-teal-500/20">
+      <Gauge size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -146,6 +155,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-violet-500 to-fuchsia-600",
       text: "text-violet-600 dark:text-violet-400",
       border: "border-violet-500/30",
+    },
+  },
+  {
+    id: "go",
+    title: goCourse.title,
+    tagline: goCourse.tagline,
+    description: goCourse.description,
+    modules: goModules,
+    course: goCourse,
+    icon: <GoGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${goCourse.stats.lessons} lessons`,
+      "Concurrency & generics",
+      "APIs & databases",
+    ],
+    accent: {
+      gradient: "from-teal-500 to-cyan-600",
+      text: "text-teal-600 dark:text-teal-400",
+      border: "border-teal-500/30",
     },
   },
   {
