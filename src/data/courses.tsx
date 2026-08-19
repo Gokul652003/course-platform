@@ -1,8 +1,9 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { goModules, goCourse } from "./goCourseData"
+import { tailwindModules, tailwindCourse } from "./tailwindCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
@@ -50,6 +51,14 @@ function GoGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-lg shadow-teal-500/20">
       <Gauge size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function TailwindGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-sky-600 shadow-lg shadow-cyan-500/20">
+      <Wind size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -175,6 +184,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-teal-500 to-cyan-600",
       text: "text-teal-600 dark:text-teal-400",
       border: "border-teal-500/30",
+    },
+  },
+  {
+    id: "tailwind",
+    title: tailwindCourse.title,
+    tagline: tailwindCourse.tagline,
+    description: tailwindCourse.description,
+    modules: tailwindModules,
+    course: tailwindCourse,
+    icon: <TailwindGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${tailwindCourse.stats.lessons} lessons`,
+      "Layout & theming",
+      "v4 CSS-first",
+    ],
+    accent: {
+      gradient: "from-cyan-400 to-sky-600",
+      text: "text-cyan-600 dark:text-cyan-400",
+      border: "border-cyan-500/30",
     },
   },
   {
