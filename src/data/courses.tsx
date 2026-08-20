@@ -1,9 +1,10 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { goModules, goCourse } from "./goCourseData"
 import { tailwindModules, tailwindCourse } from "./tailwindCourseData"
+import { cssModules, cssCourse } from "./cssCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
@@ -59,6 +60,14 @@ function TailwindGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-sky-600 shadow-lg shadow-cyan-500/20">
       <Wind size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function CssGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+      <Palette size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -204,6 +213,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-cyan-400 to-sky-600",
       text: "text-cyan-600 dark:text-cyan-400",
       border: "border-cyan-500/30",
+    },
+  },
+  {
+    id: "css",
+    title: cssCourse.title,
+    tagline: cssCourse.tagline,
+    description: cssCourse.description,
+    modules: cssModules,
+    course: cssCourse,
+    icon: <CssGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${cssCourse.stats.lessons} lessons`,
+      "Flexbox & Grid mastery",
+      "Animations & modern CSS",
+    ],
+    accent: {
+      gradient: "from-blue-500 to-indigo-600",
+      text: "text-blue-600 dark:text-blue-400",
+      border: "border-blue-500/30",
     },
   },
   {
