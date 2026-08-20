@@ -1,10 +1,11 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette, Wand2 } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { goModules, goCourse } from "./goCourseData"
 import { tailwindModules, tailwindCourse } from "./tailwindCourseData"
 import { cssModules, cssCourse } from "./cssCourseData"
+import { scssModules, scssCourse } from "./scssCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
@@ -68,6 +69,14 @@ function CssGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
       <Palette size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function ScssGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-600 shadow-lg shadow-fuchsia-500/20">
+      <Wand2 size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -233,6 +242,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-blue-500 to-indigo-600",
       text: "text-blue-600 dark:text-blue-400",
       border: "border-blue-500/30",
+    },
+  },
+  {
+    id: "scss",
+    title: scssCourse.title,
+    tagline: scssCourse.tagline,
+    description: scssCourse.description,
+    modules: scssModules,
+    course: scssCourse,
+    icon: <ScssGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${scssCourse.stats.lessons} lessons`,
+      "Mixins, functions & maps",
+      "@use/@forward modules",
+    ],
+    accent: {
+      gradient: "from-fuchsia-500 to-pink-600",
+      text: "text-fuchsia-600 dark:text-fuchsia-400",
+      border: "border-fuchsia-500/30",
     },
   },
   {
