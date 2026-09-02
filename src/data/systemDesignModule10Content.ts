@@ -131,5 +131,48 @@ When a message-driven service crashes entirely and restarts, how does it know wh
 
 > **Key idea:** Async systems can't hand a failure back to a waiting caller the way sync calls can, so real event-driven systems build failure handling explicitly: retry with exponential backoff for transient failures, dead-letter queues to quarantine messages that keep failing without blocking everything behind them, idempotent consumers to survive the duplicate delivery that at-least-once brokers guarantee will happen, the outbox pattern to keep a database write and its corresponding event publish atomic, and checkpointed replay from a durable event log to recover cleanly after a crash.`,
     },
+    {
+      name: "Consensus Algorithms & Distributed Tracing",
+      minutes: 10,
+      intro: "Understand conceptually what Paxos and Raft actually achieve and why leader election matters, then see how distributed tracing follows a single request across dozens of services.",
+      content: `## Why distributed systems need consensus at all
+
+The moment you run more than one copy of something — multiple database replicas, multiple nodes in a cluster — you hit a fundamental problem: how do multiple independent machines, which can each fail or become unreachable at any moment, agree on a single, consistent value or ordering of events? Naively, you might have each node just decide independently, but then a network partition or a crash can leave different nodes believing different, contradictory things are true — two nodes both thinking they're the primary database, for instance, and both accepting writes. **Consensus algorithms** exist to solve exactly this: getting a group of nodes to agree on one value, even when some nodes crash or messages are delayed or lost, in a way that's provably safe (nodes never agree on two different values) and provably live (the system does eventually make progress, rather than deadlocking forever).
+
+## What Paxos and Raft actually achieve (conceptually)
+
+You don't need to implement Paxos or Raft by hand to reason about system design — what matters is understanding the shape of the problem they solve and the guarantee they provide:
+
+- **Paxos** is the foundational consensus algorithm (and notoriously difficult to reason about in its full form). Conceptually, it works through rounds of proposals and majority-acceptance voting: a node proposes a value, and that value is only considered "chosen" once a *majority* of nodes have accepted it. Requiring a majority (not all nodes) is the key trick — it means the system can keep making progress even if some minority of nodes are down or unreachable, while still guaranteeing that two different majorities can never both have accepted two different values (since any two majorities out of a group must overlap by at least one node).
+- **Raft** was designed later specifically to be more understandable than Paxos while providing the same core guarantee, by making one thing explicit that Paxos leaves implicit: **leader election**. Raft nodes elect a single leader (via majority vote, with randomized election timeouts to avoid split votes) that becomes solely responsible for accepting client writes and replicating them, in order, to the other nodes (followers). If the leader crashes, the remaining nodes detect it (via a missed heartbeat) and elect a new one.
+
+## Why leader election specifically matters
+
+Having a single leader responsible for ordering all writes sidesteps a much harder problem: if every node could independently accept writes, you'd need to resolve conflicting, concurrently-accepted writes after the fact — genuinely difficult in general. With one leader as the single source of truth for ordering, every write goes through one place, gets a definite order, and is then replicated to followers in that order. The hard part becomes: what happens when the leader itself fails? This is precisely what leader election solves — the remaining nodes need to agree (via consensus themselves) on who the new leader is, without accidentally ending up with two nodes simultaneously believing they're the leader (a dangerous state called "split brain," which is exactly what the majority-vote requirement is designed to prevent — you cannot get two different majorities to elect two different leaders at the same time).
+
+This is not an abstract concern — it's the mechanism underneath real infrastructure you've likely already used: etcd and Consul (service discovery and configuration stores), ZooKeeper (coordination for older Kafka/Hadoop deployments), and the leader-election logic inside many managed database replication systems all run a Raft-family or Paxos-family algorithm under the hood specifically so that "who is currently the authoritative primary" is a question the cluster can answer safely even as individual nodes fail.
+
+## Distributed tracing: following one request across many services
+
+Once a request fans out across a dozen microservices, a question that used to be trivial — "why was this request slow, and where did it fail?" — becomes genuinely hard, because the relevant logs are now scattered across a dozen separate services with no inherent link between them. **Distributed tracing** solves this by attaching a single **trace ID** to a request at the moment it enters the system, and propagating that same trace ID through every downstream service call the request triggers.
+
+\`\`\`text
+trace_id: abc123
+
+[API Gateway]  span: 5ms   ─┐
+   └─> [Auth Service]  span: 12ms  ─┤
+   └─> [Order Service]  span: 80ms ─┼─ all tagged trace_id=abc123
+          └─> [Inventory Service]  span: 40ms ─┤
+          └─> [Payment Service]  span: 30ms ──┘
+
+Total request latency: ~127ms, and you can see exactly which service ate the time.
+\`\`\`
+
+Each individual unit of work within that trace (one service's handling of its part of the request) is recorded as a **span**, tagged with the shared trace ID plus its own start time, duration, and metadata. Tools like Jaeger and Zipkin collect these spans from every service and reassemble them into a single timeline for the whole request, letting you visually see exactly which service in the chain was slow, or exactly which one threw the error that caused the overall request to fail — instead of manually cross-referencing timestamps across a dozen separate log files and hoping they line up.
+
+Distributed tracing stops being optional past a certain scale: with two or three services, reading logs by hand is annoying but survivable; past a handful of services calling each other, it becomes genuinely impossible to reconstruct what happened to a specific failed request without a shared trace ID tying the pieces together.
+
+> **Key idea:** Consensus algorithms like Paxos and Raft let a cluster of unreliable nodes safely agree on a single value by requiring majority acceptance (so any two accepted values must have overlapping voters and can never conflict); Raft makes this concrete through explicit leader election, so all writes get a definite order through one leader at a time, with the same majority-vote mechanism preventing two leaders from existing simultaneously; and distributed tracing solves the parallel observability problem — reconstructing what happened to one request across many services — by tagging every downstream call with a shared trace ID and stitching the resulting spans back into one timeline.`,
+    },
   ],
 }
