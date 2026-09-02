@@ -53,5 +53,51 @@ When a system design problem asks you to justify a database or replication strat
 
 > **Key idea:** CAP forces a choice between consistency and availability only during a network partition — and since partitions are unavoidable in distributed systems, the real decision is CP vs AP, made per data type based on what's actually at stake if that data is briefly wrong.`,
     },
+    {
+      name: "Availability & Achieving High Availability",
+      minutes: 10,
+      intro: "Quantify availability with the 'nines,' translate percentages into real downtime budgets, and learn the concrete engineering techniques used to hit them.",
+      content: `## Measuring availability: the "nines"
+
+Availability is the percentage of time a system is capable of serving correct requests, measured over some period (usually a year). It's usually expressed as a string of nines, and the jump between each nine represents a dramatically shrinking downtime budget:
+
+| Availability | Downtime per year | Downtime per month | Common tier |
+|---|---|---|---|
+| 99% ("two nines") | ~3.65 days | ~7.3 hours | Internal tools, non-critical batch jobs |
+| 99.9% ("three nines") | ~8.76 hours | ~43.8 minutes | Typical production SaaS SLA |
+| 99.99% ("four nines") | ~52.6 minutes | ~4.4 minutes | Payment processors, core infrastructure |
+| 99.999% ("five nines") | ~5.26 minutes | ~26 seconds | Telecom switches, critical financial systems |
+
+Each additional nine costs disproportionately more engineering effort — going from three nines to four nines usually means redesigning around redundancy and automated failover, not just "trying harder." This is why availability targets are a genuine architectural decision, made explicit in a Service Level Agreement (SLA), rather than an implicit goal every system should maximize by default: five-nines infrastructure for an internal admin dashboard is wasted spend.
+
+## Why systems become unavailable
+
+Before fixing availability, it helps to name what breaks it: hardware failure (a disk or a whole machine dies), software failure (a bad deploy, a memory leak, an unhandled exception cascading), network failure (a partition, DNS misconfiguration, a certificate expiring), overload (traffic spikes past capacity), and human error (a mistyped configuration change, an accidental deletion). Notice that most of these are not exotic — they're the ordinary cost of running any nontrivial system at scale for a long enough time. High availability isn't about preventing failure; it's about designing so that any single one of these failures doesn't take the whole system down.
+
+## Redundancy: the foundational technique
+
+The core idea behind almost every high-availability technique is the same: **eliminate single points of failure (SPOFs)** by running more than one of everything that matters.
+
+- **Server redundancy** — run multiple instances of every service behind a load balancer, so one instance dying doesn't take down the service.
+- **Database redundancy** — replicate data across multiple database nodes (covered in depth in Module 4), so a primary failing doesn't mean data loss or downtime.
+- **Multi-AZ deployment** — deploy across multiple Availability Zones within a cloud region (physically separate data centers with independent power and networking), so a single data center outage doesn't take the whole service down.
+- **Multi-region deployment** — go a step further and deploy across geographically distinct regions, protecting against a failure that takes out an entire region (a regional power grid failure, a natural disaster) at the cost of significantly higher complexity and cross-region data synchronization challenges.
+
+\`\`\`text
+Single instance:      [ Server ] ← one failure = full outage
+Redundant instances:  [ LB ] → [ Server A ] [ Server B ] [ Server C ]
+                                    ↑ one dies, LB routes around it, service stays up
+\`\`\`
+
+## Detecting failure before users do
+
+Redundancy only helps if the system actually notices a failed node and stops sending it traffic — which is the job of **health checks**: a load balancer or orchestrator periodically pings each instance (a lightweight \`/health\` endpoint is the standard pattern) and automatically removes any instance that stops responding correctly from the rotation. Paired with **automated failover** — promoting a replica to primary, spinning up a replacement instance, rerouting traffic — this turns what would be a multi-hour manual incident into a self-healing event that finishes in seconds, often before anyone gets paged.
+
+## Degrading gracefully instead of failing completely
+
+The highest-availability systems don't treat "fully working" and "completely down" as the only two states. **Graceful degradation** means that when a non-critical dependency fails, the system keeps serving its core function with reduced functionality rather than failing outright — an e-commerce site whose recommendation service is down should still let you check out, just without "customers also bought" suggestions; a social feed whose image CDN is degraded should still render posts, just with broken thumbnails instead of a blank page. Designing for this means explicitly identifying which dependencies are load-bearing for the *core* user journey and which are enhancements, and making sure a failure in the latter category can never take down the former.
+
+> **Key idea:** Availability is measured in "nines" that represent shrinking downtime budgets and rising engineering cost, and it's achieved not by preventing failure but by eliminating single points of failure through redundancy, catching failures fast with health checks and automated failover, and designing services to degrade gracefully instead of failing completely when a dependency goes down.`,
+    },
   ],
 }
