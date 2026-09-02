@@ -122,5 +122,60 @@ Warming matters most for systems with a small number of extremely hot keys and a
 
 > **Key idea:** Local caches are faster but per-instance and hard to keep consistent, while distributed caches are shared and consistent but pay a network hop; eviction policies (LRU for general recency-based workloads, LFU for stable hot sets, TTL for naturally time-bound data) decide what gets dropped when a cache fills up, and a cold cache — especially right after a deploy or restart — can expose the origin to full, unshielded load until it's warmed, which is exactly what deliberate cache-warming strategies exist to prevent.`,
     },
+    {
+      name: "CDN, Edge Caching & CDN vs Edge Server",
+      minutes: 10,
+      intro: "Understand how a CDN cuts latency by serving from edge locations, what edge caching covers, and how a CDN differs from a single edge server.",
+      content: `## The physical problem a CDN solves
+
+Latency has a hard physical floor: data can't travel faster than the speed of light, and in practice it travels meaningfully slower than that through real network infrastructure. A user in Mumbai requesting a page from a server in Virginia pays for every one of those thousands of kilometers, round trip, on every single request — no amount of clever backend code changes that distance.
+
+A **Content Delivery Network (CDN)** solves this not by making data travel faster, but by making it travel *less far*: it's a globally distributed network of servers — called **edge servers** or **points of presence (PoPs)** — that cache copies of your content at locations physically close to your users. Instead of every request crossing an ocean to reach your origin server, most requests get served from an edge location a few dozen kilometers away, cutting latency from hundreds of milliseconds to single digits.
+
+\`\`\`text
+Without a CDN:
+  User (Mumbai) ────────────────────────────► Origin server (Virginia)
+                        ~250ms round trip
+
+With a CDN:
+  User (Mumbai) ──► Edge server (Mumbai PoP)          Origin server (Virginia)
+                       ~5ms round trip        (only contacted on a cache miss)
+\`\`\`
+
+## What gets cached at the edge
+
+Historically, CDNs were associated almost entirely with **static content** — files that are identical for every user and change rarely: images, videos, CSS, JavaScript bundles, downloadable files. Static content is the easiest possible caching case, because there's no per-user variation to worry about — the edge server can cache one copy and serve it to millions of different users unchanged.
+
+Modern CDNs increasingly also cache **dynamic content** — API responses, personalized-but-cacheable fragments, even entire server-rendered HTML pages — using techniques like:
+
+- **Short TTLs with background revalidation** ("stale-while-revalidate") — serve a slightly stale cached response immediately while quietly fetching a fresh one in the background for the next request.
+- **Cache key variation** — caching separate copies keyed by things like locale, device type, or an auth-free version of a page, rather than treating every response as either "fully cacheable" or "never cacheable."
+- **Edge compute** — some CDNs now let you run small pieces of application logic directly at the edge server (rewriting a request, checking a header, even rendering a personalized fragment), reducing round trips to the origin even for content that isn't a plain cache hit.
+
+The general rule of thumb: the more identical a response is across users and over time, the further toward the edge it can safely be cached; the more personalized or write-heavy it is, the closer to the origin it needs to stay.
+
+## CDN vs edge server: broader service vs individual node
+
+These two terms get used almost interchangeably in casual conversation, but they describe different scopes of the same system:
+
+| | CDN | Edge server |
+|---|---|---|
+| What it is | The entire distributed *service* — the network, the routing logic, the cache-invalidation APIs, the global footprint | One physical (or virtual) machine at one specific point of presence |
+| Scope | Global — potentially hundreds of locations worldwide | Local — serves requests from users near that one location |
+| What you configure | Caching rules, TTLs, origin settings, purge APIs — applied network-wide | Nothing directly — you don't manage individual edge servers, the CDN provider does |
+| Analogy | A courier company | One of the company's local depots |
+
+In other words: **a CDN is made of many edge servers.** When you configure a CDN (Cloudflare, Akamai, Fastly, CloudFront), you're setting policy for the whole network — a single "cache this path for 1 hour" rule gets applied consistently across every edge server worldwide, and the CDN's routing layer (typically built on DNS or anycast) is responsible for automatically directing each user's request to whichever edge server is physically or topologically nearest them. You never manually pick "the Mumbai server" — the CDN figures that out per request.
+
+## Why this matters beyond raw speed
+
+Reducing latency is the headline benefit, but a CDN pays off in a few other ways that matter just as much at scale:
+
+- **Origin offload** — every request served from the edge is a request your origin servers never see, directly reducing load on the systems you actually operate and pay to scale.
+- **Resilience against traffic spikes** — because the edge absorbs the bulk of read traffic, a sudden surge (a viral post, a flash sale) hits the CDN's much larger aggregate capacity rather than your origin's fixed capacity.
+- **A first line of defense against abuse** — many CDNs sit in front of the origin for *all* traffic, not just cacheable requests, giving them a natural vantage point to absorb DDoS traffic and apply rate limiting before it ever reaches your infrastructure.
+
+> **Key idea:** A CDN cuts latency by physically shortening the distance data travels, caching content at edge servers near users instead of routing every request to a single distant origin; static content is the easiest case, but modern CDNs increasingly cache dynamic content too, and "CDN" refers to the whole distributed service (routing, policy, global footprint) while an "edge server" is just one physical node within it.`,
+    },
   ],
 }
