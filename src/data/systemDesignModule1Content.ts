@@ -70,5 +70,87 @@ Technical interviews at companies operating at real scale (Google, Amazon, Uber,
 
 > **Key idea:** System design is the deliberate practice of choosing a system's architecture so it stays scalable, reliable, cost-effective, and maintainable as it grows; High-Level Design decides the shape of the system (components, data flow, boxes and arrows), Low-Level Design decides how each component is actually built (classes, interfaces, algorithms), and real engineering work — and system design interviews — move through both in that order.`,
     },
+    {
+      name: "Functional vs Non-Functional Requirements",
+      minutes: 11,
+      intro: "Learn to separate what a system must do from how well it must do it, and walk through real back-of-envelope capacity estimation with worked numbers.",
+      content: `## Two different questions requirements answer
+
+Before any box gets drawn, every system design problem starts with requirements — and requirements split cleanly into two categories that get analyzed very differently.
+
+**Functional requirements** describe *what* the system does — the features and behaviors visible to a user. For a URL shortener: "a user can submit a long URL and receive a short one," "visiting the short URL redirects to the original," "a user can see click analytics for their link." These read like a feature list, and they're usually the easy part of an interview or design doc to nail down — they're concrete and testable.
+
+**Non-functional requirements (NFRs)** describe *how well* the system does it — the quality attributes that don't show up as a checkbox feature but determine whether the system actually survives contact with real usage:
+
+| NFR | What it asks |
+|---|---|
+| Scalability | Can it handle growth in users, data, and traffic? |
+| Availability | What fraction of the time is it usable? |
+| Latency | How fast does it respond? |
+| Consistency | Do all reads see the same, most-recent data? |
+| Durability | Once data is written, can it survive failures without being lost? |
+| Security | Is data protected from unauthorized access? |
+
+Non-functional requirements are where system design actually gets interesting, because they're rarely all achievable at once, at low cost, simultaneously — a system optimized for strict consistency pays for it in latency or availability (a theme Module 5's CAP theorem lesson makes precise). Part of the job in any design exercise is explicitly stating *which* NFRs matter most for this particular system, because that choice drives almost every downstream architectural decision.
+
+A practical habit: for any system, write functional requirements as a short bullet list of user-facing capabilities, and non-functional requirements as a short list of *target numbers or guarantees*, not vague adjectives. "Fast" is not a requirement; "p99 read latency under 200ms" is.
+
+## Back-of-envelope capacity estimation
+
+Once requirements are pinned down, the next step — before drawing a single box — is estimating scale. This is a skill in its own right: given a rough usage pattern, quickly derive the numbers (requests per second, storage growth, bandwidth) that will actually determine your architecture. These estimates don't need to be precise; they need to be right within an order of magnitude, fast.
+
+**Worked example: a URL shortener.**
+
+Assume the product has 100 million monthly active users, and on average each user creates 1 short link per month and clicks 20 short links per month (10:1 read-to-write ratio is typical and worth calling out explicitly).
+
+**Write QPS (queries per second) — new links created:**
+
+\`\`\`text
+100,000,000 users × 1 write/month
+= 100,000,000 writes/month
+
+writes/month ÷ (30 days × 24 hours × 3600 seconds)
+= 100,000,000 ÷ 2,592,000
+≈ 38 writes/sec average
+\`\`\`
+
+**Read QPS — redirects served:**
+
+\`\`\`text
+100,000,000 users × 20 reads/month
+= 2,000,000,000 reads/month
+
+2,000,000,000 ÷ 2,592,000
+≈ 771 reads/sec average
+\`\`\`
+
+**Peak load.** Average QPS understates real load, because traffic isn't evenly spread across the day — a common rule of thumb is to multiply average by 2-3x to estimate peak:
+
+\`\`\`text
+Peak reads ≈ 771 × 3 ≈ 2,300 reads/sec
+Peak writes ≈ 38 × 3 ≈ 115 writes/sec
+\`\`\`
+
+This single number — "the system needs to comfortably serve roughly 2,000-2,500 reads/sec at peak" — already tells you a lot: a single traditional relational database read replica handling low thousands of simple key lookups per second is plausible, so this doesn't yet scream "you need a distributed database," but it does tell you caching hot redirects will meaningfully cut database load, since redirect reads dominate writes 20:1.
+
+**Storage.** If each stored record (short code, long URL, metadata) is roughly 500 bytes, and the system retains 5 years of links at the write rate above:
+
+\`\`\`text
+100,000,000 writes/month × 12 months × 5 years
+= 6,000,000,000 records
+
+6,000,000,000 × 500 bytes
+= 3,000,000,000,000 bytes
+≈ 3 TB total
+\`\`\`
+
+Three terabytes over five years is well within what a single well-provisioned database (or a small cluster) can hold — again, not automatically a "must shard from day one" system, which is exactly the kind of conclusion this estimation exercise exists to produce before you over-engineer.
+
+**Bandwidth**, similarly, comes from multiplying request rate by average payload size — at ~2,300 redirect reads/sec and a tiny few-hundred-byte response each, bandwidth for this particular system turns out to be a non-issue; for a system serving images or video, this same calculation would flag bandwidth as a primary constraint instead.
+
+The pattern to internalize: **users → actions per user → requests per second → peak load → storage → bandwidth**, each derived from the last with simple arithmetic, done out loud, with round numbers. Interviewers care far more about the reasoning chain and what conclusions you draw from it than about decimal precision.
+
+> **Key idea:** Functional requirements describe what a system does; non-functional requirements describe how well it must do it (scale, availability, latency, consistency, durability) and are rarely all maximizable at once, forcing explicit trade-offs; back-of-envelope estimation turns a vague user count into concrete QPS, storage, and bandwidth numbers that directly justify (or rule out) architectural decisions before any component gets designed.`,
+    },
   ],
 }
