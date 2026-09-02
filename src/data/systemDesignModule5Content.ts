@@ -99,5 +99,48 @@ The highest-availability systems don't treat "fully working" and "completely dow
 
 > **Key idea:** Availability is measured in "nines" that represent shrinking downtime budgets and rising engineering cost, and it's achieved not by preventing failure but by eliminating single points of failure through redundancy, catching failures fast with health checks and automated failover, and designing services to degrade gracefully instead of failing completely when a dependency goes down.`,
     },
+    {
+      name: "Reliability, Fault Tolerance & Maintainability",
+      minutes: 11,
+      intro: "Distinguish reliability from availability, learn the concrete fault-tolerance patterns that keep systems correct under failure, and see why maintainability is a design decision, not an afterthought.",
+      content: `## Reliability vs availability — a distinction worth keeping straight
+
+Availability and reliability get used interchangeably in casual conversation, but in system design they answer different questions. **Availability** asks "is the system up and responding?" **Reliability** asks "when the system responds, is the response *correct*?" A system can be available but unreliable — up 99.99% of the time but occasionally returning corrupted data or losing a write during a failure. A system can also be momentarily unavailable but perfectly reliable — a database that refuses writes during a partition rather than risk inconsistency (the CP choice from the previous lesson) is unavailable in that window but never wrong. Good system design treats these as two separate axes to reason about independently, not one blurry notion of "system health."
+
+## Fault tolerance: designing for failure, not against it
+
+Fault tolerance is the property of a system continuing to function correctly even when one or more of its components fail. The mindset shift that matters here: instead of trying to prevent every possible failure (impossible at scale), fault-tolerant design assumes failures *will* happen constantly and focuses on containing their blast radius.
+
+**Retries with backoff.** A transient failure — a momentary network blip, a server briefly overloaded — often succeeds on a second attempt. Naively retrying immediately, though, can make things worse: if a downstream service is struggling under load, an army of clients all retrying instantly creates a retry storm that keeps it down. **Exponential backoff** fixes this by waiting progressively longer between attempts (1s, 2s, 4s, 8s...), and adding **jitter** — a small random offset to each wait — prevents many clients from retrying in synchronized bursts:
+
+\`\`\`text
+Attempt 1 fails → wait ~1s (±jitter) → Attempt 2 fails → wait ~2s (±jitter) → Attempt 3...
+\`\`\`
+
+**Circuit breakers.** Retrying forever against a service that's genuinely down just wastes resources and delays failure detection. A circuit breaker wraps calls to a dependency and tracks its failure rate; once failures cross a threshold, the breaker "opens" and fails fast immediately for a cooldown period instead of letting every request hang waiting on a doomed call — protecting both the caller (fast failure instead of a hung request) and the struggling dependency (no additional load while it recovers). After the cooldown, the breaker allows a trial request through to check if the dependency has recovered before fully closing again.
+
+**Bulkheads.** Named after the watertight compartments in a ship's hull that keep one flooded section from sinking the whole vessel, the bulkhead pattern isolates resources (thread pools, connection pools) per dependency, so a slowdown in one downstream service can't exhaust resources needed to serve requests unrelated to it. Without bulkheads, one slow dependency can starve the entire application of threads or connections and take down features that have nothing to do with it.
+
+**Redundancy**, already covered as an availability technique in the previous lesson, is equally a fault-tolerance technique — the same replicated nodes that keep a system *up* during a failure are what keep it *correct*, since a healthy replica can serve the request a failed node couldn't.
+
+**Idempotency.** In a world of retries and at-least-once message delivery, the same request or event can arrive more than once. An idempotent operation produces the same result no matter how many times it's applied — \`setBalance(100)\` is idempotent, \`incrementBalance(10)\` is not, because retrying the latter after an ambiguous failure (did the first attempt actually go through?) can silently double-charge or double-credit. Designing write operations to be idempotent (often via a client-supplied idempotency key the server deduplicates on) is what makes "just retry it" a safe default instead of a data-corruption risk.
+
+## Maintainability: designing for the humans who run the system
+
+Maintainability is the often-overlooked third leg of the reliability triangle: how easily can the people operating this system understand it, fix it, and change it safely over time? A system that's technically reliable today but impossible to debug at 3 a.m. during an incident, or too risky to modify without fear of breaking something unrelated, accumulates operational cost that eventually shows up as *reduced* reliability — because tired, confused engineers under pressure make mistakes.
+
+Concrete design choices that drive maintainability:
+
+- **Observability** — structured logs, metrics, and distributed traces (covered in Module 10) that let an engineer answer "what is this system doing right now, and why" without reading source code under pressure.
+- **Clear ownership boundaries** — services with well-defined responsibilities and interfaces (a direct payoff of the architectural styles from Module 2) mean a given failure narrows quickly to "which team/component owns this," instead of every incident becoming an all-hands archaeology dig.
+- **Documentation and runbooks** — a written, tested procedure for "what to do when X alert fires" turns an incident into a checklist instead of an improvised investigation.
+- **Simplicity over cleverness** — every added abstraction, custom framework, or non-standard pattern is a tax paid by every future engineer who has to understand it during an incident; the most maintainable systems tend to be the most boring ones.
+
+## How the three qualities trade off against cost
+
+None of this is free. More redundancy means more infrastructure spend. More circuit breakers and retry logic mean more code paths to test and reason about. More observability means more instrumentation to write and more data to store and query. Every real system design conversation eventually has to weigh reliability, fault tolerance, and maintainability against budget and delivery speed — the right amount of each is however much the *actual* cost of failure justifies, not the theoretical maximum.
+
+> **Key idea:** Reliability (correctness) is distinct from availability (uptime); fault tolerance is achieved through retries with backoff and jitter, circuit breakers, bulkheads, redundancy, and idempotency working together to contain failures rather than prevent them; and maintainability — observability, clear ownership, documentation, and simplicity — determines whether a system stays reliable in the hands of the humans who operate it.`,
+    },
   ],
 }
