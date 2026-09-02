@@ -98,5 +98,137 @@ Getting aggregation and composition right specifically — whether the "part" ca
 
 > **Key idea:** LLD turns an HLD architecture into concrete classes and interfaces; OOP's four pillars (encapsulation, abstraction, inheritance, polymorphism) are the raw material; SOLID gives five principles for classes that tolerate change well, while DRY/KISS/YAGNI guard against over-applying them into needless complexity; and UML class diagrams — especially getting aggregation vs. composition right — are the shared notation for communicating the result.`,
     },
+    {
+      name: "Common Design Patterns in System Design Interviews",
+      minutes: 11,
+      intro: "Work through the creational, structural, and behavioral design patterns that come up most often in LLD interviews, each framed around the specific recurring problem it solves.",
+      content: `## Why these patterns specifically
+
+Design patterns are reusable solutions to recurring design problems — not rules to apply everywhere, but a shared vocabulary that lets you say "this needs a Strategy" instead of re-deriving the same solution from scratch, and instantly communicate the intent to anyone who knows the pattern. A handful of patterns account for the large majority of what actually shows up in LLD interviews, grouped into three families by what kind of problem they solve.
+
+## Creational patterns: controlling how objects get created
+
+**Singleton** — ensures a class has exactly one instance, globally accessible. Used when having more than one instance would be wrong or wasteful — a single shared configuration object, a single connection pool, a single logging instance.
+
+\`\`\`java
+class ConnectionPool {
+    private static ConnectionPool instance;
+    private ConnectionPool() {}
+
+    public static ConnectionPool getInstance() {
+        if (instance == null) instance = new ConnectionPool();
+        return instance;
+    }
+}
+\`\`\`
+
+The problem it solves: preventing accidental duplication of something that must be unique. The trade-off worth knowing: singletons introduce global state, which makes testing harder and can hide dependencies — used correctly for genuinely singular resources, overused as a lazy substitute for proper dependency management.
+
+**Factory** — delegates object creation to a dedicated method or class instead of calling \`new\` directly, so calling code doesn't need to know which concrete class to instantiate.
+
+\`\`\`java
+interface Notification { void send(String message); }
+class EmailNotification implements Notification { public void send(String m) { /* ... */ } }
+class SmsNotification implements Notification { public void send(String m) { /* ... */ } }
+
+class NotificationFactory {
+    static Notification create(String type) {
+        return switch (type) {
+            case "email" -> new EmailNotification();
+            case "sms" -> new SmsNotification();
+            default -> throw new IllegalArgumentException();
+        };
+    }
+}
+\`\`\`
+
+The problem it solves: isolating "which concrete class do I create" so that adding a new notification type touches only the factory, never the code that calls it.
+
+**Builder** — constructs a complex object step by step, avoiding a constructor with an unmanageable number of parameters (or a huge number of overloaded constructors for every combination of optional fields).
+
+\`\`\`java
+Pizza pizza = new Pizza.Builder()
+    .size("large")
+    .addTopping("mushroom")
+    .addTopping("olive")
+    .build();
+\`\`\`
+
+The problem it solves: objects with many optional fields becoming unreadable and error-prone to construct directly — the builder makes construction explicit and readable, and lets you validate the final object once, in \`build()\`.
+
+## Structural patterns: composing objects and classes
+
+**Adapter** — converts one interface into another that calling code expects, letting incompatible interfaces work together without modifying either side.
+
+\`\`\`java
+interface ModernPaymentAPI { void pay(double amountInCents); }
+
+class LegacyPaymentSystem { void makePayment(String dollars) { /* ... */ } }
+
+class LegacyPaymentAdapter implements ModernPaymentAPI {
+    private LegacyPaymentSystem legacy;
+    public void pay(double amountInCents) {
+        legacy.makePayment(String.valueOf(amountInCents / 100));
+    }
+}
+\`\`\`
+
+The problem it solves: integrating a third-party or legacy component whose interface doesn't match what the rest of your system expects, without rewriting either the legacy system or your own callers.
+
+**Decorator** — attaches new behavior to an object dynamically by wrapping it, as an alternative to subclassing every possible combination of features.
+
+\`\`\`java
+interface Coffee { double cost(); }
+class PlainCoffee implements Coffee { public double cost() { return 2.0; } }
+
+class MilkDecorator implements Coffee {
+    private Coffee inner;
+    MilkDecorator(Coffee c) { inner = c; }
+    public double cost() { return inner.cost() + 0.5; }
+}
+
+Coffee order = new MilkDecorator(new PlainCoffee()); // cost() == 2.5
+\`\`\`
+
+The problem it solves: a combinatorial explosion of subclasses (\`CoffeeWithMilk\`, \`CoffeeWithMilkAndSugar\`, ...) — decorators let you stack independent behaviors at runtime instead.
+
+**Facade** — provides a single, simplified interface in front of a complex subsystem with many interacting parts, hiding that complexity from callers who just want a straightforward operation.
+
+The problem it solves: a client that needs to "book a trip" shouldn't have to know it involves separately coordinating a flight API, a hotel API, and a payment API — a \`TripBookingFacade.bookTrip()\` method hides that orchestration behind one call.
+
+## Behavioral patterns: how objects interact and delegate
+
+**Observer** — defines a one-to-many dependency where, when one object (the subject) changes state, all its registered observers are notified automatically. This is the pattern underneath pub/sub systems and event listeners.
+
+\`\`\`java
+interface Observer { void update(String event); }
+
+class EventBus {
+    private List<Observer> observers = new ArrayList<>();
+    void subscribe(Observer o) { observers.add(o); }
+    void publish(String event) {
+        for (Observer o : observers) o.update(event);
+    }
+}
+\`\`\`
+
+The problem it solves: decoupling the thing that produces a change from the (possibly many, possibly changing) things that need to react to it, without the producer knowing anything concrete about its consumers.
+
+**Strategy** — defines a family of interchangeable algorithms, encapsulates each one, and lets the algorithm be selected and swapped at runtime. This is exactly the same interface-based shape used for \`PaymentMethod\` earlier — the Strategy pattern is the general name for "the caller depends on an interface, and the concrete implementation is chosen elsewhere."
+
+The problem it solves: an \`if/else\` or \`switch\` chain selecting between algorithms (sorting strategies, pricing strategies, compression strategies) gets replaced with pluggable classes, so adding a new strategy never means editing existing code — a direct application of the Open/Closed Principle.
+
+**State** — lets an object change its behavior when its internal state changes, by delegating to a separate class representing each state, rather than a sprawling conditional checking "what state am I in" everywhere the behavior differs.
+
+\`\`\`java
+interface OrderState { void next(Order order); }
+class PlacedState implements OrderState { public void next(Order o) { o.setState(new ShippedState()); } }
+class ShippedState implements OrderState { public void next(Order o) { o.setState(new DeliveredState()); } }
+\`\`\`
+
+The problem it solves: state-dependent behavior scattered across conditionals throughout a class becomes fragile as more states are added — the State pattern isolates each state's behavior into its own class, so the object's core logic stays simple and each transition is explicit.
+
+> **Key idea:** Creational patterns (Singleton, Factory, Builder) control how and when objects get created; structural patterns (Adapter, Decorator, Facade) control how objects and interfaces compose without forcing changes to existing code; and behavioral patterns (Observer, Strategy, State) control how objects interact and delegate — in every case, the pattern is the answer to one specific, recurring design pressure, and naming that pressure matters more in an interview than reciting the pattern's definition.`,
+    },
   ],
 }
