@@ -332,6 +332,26 @@ export const courses: CourseBundle[] = [
     },
   },
   {
+    id: "system-design",
+    title: systemDesignCourse.title,
+    tagline: systemDesignCourse.tagline,
+    description: systemDesignCourse.description,
+    modules: systemDesignModules,
+    course: systemDesignCourse,
+    icon: <SystemDesignGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${systemDesignCourse.stats.lessons} lessons`,
+      "HLD & LLD",
+      "Interview ready",
+    ],
+    accent: {
+      gradient: "from-indigo-500 to-purple-600",
+      text: "text-indigo-600 dark:text-indigo-400",
+      border: "border-indigo-500/30",
+    },
+  },
+  {
     id: "aws",
     title: awsCourse.title,
     tagline: awsCourse.tagline,
