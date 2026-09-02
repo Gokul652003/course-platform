@@ -65,5 +65,65 @@ The underlying principle is the same one that shows up everywhere in reliability
 
 > **Key idea:** Authentication answers "who are you" (sessions, JWTs, OAuth) while authorization answers "what can you do" (commonly RBAC) — both are required, and neither substitutes for the other; TLS encrypts data in transit via a handshake that authenticates the server and negotiates a shared key; and the Secure SDLC treats security as a concern threaded through every phase of development rather than a final pre-launch check.`,
     },
+    {
+      name: "Testing Strategies for Reliable Systems",
+      minutes: 10,
+      intro: "Place unit and integration testing in the testing pyramid, distinguish load testing from stress testing, and see how a CI/CD pipeline turns testing into a repeatable, automatic gate.",
+      content: `## The testing pyramid: not all tests are equal
+
+A reliable system isn't reliable because someone tested it once — it's reliable because a layered set of automated tests catches different classes of bugs at different levels, cheaply and repeatedly, every time the code changes. The classic mental model is a pyramid: many small, fast tests at the bottom, fewer, slower, broader tests near the top.
+
+\`\`\`text
+        /\\
+       /  \\      End-to-end / manual exploratory (few, slow, expensive)
+      /----\\
+     / Integ \\   Integration tests (moderate count)
+    /--------\\
+   /   Unit    \\ Unit tests (many, fast, cheap)
+  /------------\\
+\`\`\`
+
+## Unit testing: one function or class, in isolation
+
+A **unit test** exercises the smallest testable piece of code — typically a single function or class — in complete isolation from the rest of the system, with external dependencies (a database, a network call, another service) replaced by mocks or stubs. If a function calculates a shipping fee from weight and destination, its unit test calls it directly with known inputs and asserts on the output — no server running, no database involved.
+
+Unit tests are fast (milliseconds each), so a suite of thousands can run on every code change, and because they isolate one unit at a time, a failure points precisely at the broken piece. What they *don't* verify is whether the pieces work correctly *together* — a function can pass every unit test while still breaking when wired into the real system, if the way it's actually called doesn't match the test's assumptions.
+
+## Integration testing: do the pieces actually work together
+
+**Integration tests** exercise multiple components together — a service talking to a real (or realistic) database, two internal services calling each other over the network, an API endpoint tested through actual HTTP requests rather than direct function calls. They catch the class of bug unit tests structurally can't: mismatched assumptions at a boundary (a service expects a field the caller never sends), a real database constraint that mocks didn't enforce, serialization bugs that only appear once data actually crosses a network hop.
+
+They're slower and more expensive to run than unit tests — spinning up a real database or a small cluster of services takes real time — so a healthy test suite has far more unit tests than integration tests, using integration tests specifically for the boundaries where components meet, not to re-verify logic already covered at the unit level.
+
+## Load testing vs. stress testing: two different questions
+
+Both simulate traffic against a system before real users do, but they ask fundamentally different questions:
+
+| | Load testing | Stress testing |
+|---|---|---|
+| Question | "Does the system handle *expected* traffic correctly?" | "Where does the system actually break?" |
+| Traffic level | Realistic, expected peak load | Deliberately pushed beyond expected capacity, ramped until failure |
+| Goal | Validate performance under normal-to-peak conditions (latency, error rate stay acceptable) | Find the breaking point and observe *how* it fails |
+| Typical finding | "p99 latency is 180ms at 10,000 req/s, within SLA" | "At 40,000 req/s the connection pool exhausts and the database starts timing out, cascading into 500s everywhere" |
+
+Load testing answers "will this survive launch day at the traffic we expect," while stress testing answers "what happens if we're wrong about that estimate, and does the system degrade gracefully or fall over catastrophically." Both matter: a system that only ever gets load-tested at expected traffic has no idea whether a viral spike takes it down cleanly or takes down unrelated services with it.
+
+## CI/CD: making testing automatic instead of optional
+
+Tests that exist but that someone has to remember to run get skipped under deadline pressure — which is exactly when they're needed most. A **CI/CD pipeline** (Continuous Integration / Continuous Deployment) removes that human judgment call by wiring testing directly into the path code takes from a developer's laptop to production:
+
+\`\`\`text
+Code pushed ---> Build ---> Automated tests ---> Deploy (staging) ---> Automated tests ---> Deploy (production)
+                    |             |                                         |
+                 compile      unit + integration                    smoke tests / canary
+\`\`\`
+
+- **Continuous Integration** — every code change is automatically built and tested the moment it's pushed, catching integration problems within minutes instead of days later when someone else's unrelated change collides with it.
+- **Continuous Deployment** — changes that pass every gate flow automatically toward production, often through a staging environment and increasingly cautious rollout (canary or blue-green deployment), rather than a manual, error-prone release process.
+
+The value isn't just automation for its own sake — it's the feedback loop. A bug caught by CI ten minutes after being introduced, while the change is still fresh in the author's head, is dramatically cheaper to fix than the same bug discovered days later during a manual QA pass, or worse, after it ships.
+
+> **Key idea:** Unit tests isolate and verify individual pieces fast and cheaply; integration tests verify the boundaries where those pieces meet, at real but higher cost; load testing confirms the system behaves correctly at expected traffic while stress testing finds where it actually breaks and how; and a CI/CD pipeline turns all of this from an optional manual step into an automatic, repeatable gate on every change.`,
+    },
   ],
 }
