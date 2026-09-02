@@ -110,5 +110,45 @@ The strongly preferred fix, wherever possible, is to **externalize the state** i
 
 > **Key idea:** Naive \`hash % N\` remaps nearly every key when the server count changes, which consistent hashing fixes by placing servers and keys on a shared ring so a topology change only disturbs the keys near the affected server — smoothed further with virtual nodes — while stateless load balancing (every server interchangeable) should be preferred over sticky sessions wherever the underlying state can be externalized to a shared store instead.`,
     },
+    {
+      name: "Concurrency, Parallelism & Load Balancing vs Failover",
+      minutes: 9,
+      intro: "Pin down the real difference between concurrency and parallelism with a concrete example, and separate load balancing (distributing healthy traffic) from failover (reacting to a dead node).",
+      content: `## Concurrency vs parallelism: a distinction, not a synonym
+
+These two words get used interchangeably in casual conversation, but they describe genuinely different things, and the difference matters when reasoning about how a load-balanced system actually uses its capacity.
+
+- **Concurrency** is about *structure*: a system is concurrent if it can deal with multiple tasks that are in progress at overlapping times, making progress on more than one at once by interleaving work — even on a single CPU core. A single-threaded event loop juggling many in-flight network requests (never blocking on any one of them) is concurrent, even though only one instruction executes at any given nanosecond.
+- **Parallelism** is about *execution*: a system is parallel if it literally executes multiple tasks at the exact same instant, which requires multiple physical execution units — multiple CPU cores, multiple machines.
+
+A single core running Node.js's event loop can be highly concurrent (handling thousands of in-flight I/O-bound requests by switching between them while each waits on the network) without being parallel at all, since only one line of JavaScript ever runs at a truly simultaneous instant. A fleet of eight servers behind a load balancer, each handling a request at the same physical moment, is parallel. A single server with an eight-core CPU processing eight CPU-bound requests simultaneously, one per core, is also parallel. The two properties are independent and frequently combined: a load-balanced fleet of multi-core, event-loop-based servers is both highly concurrent (each server juggles many in-flight requests) and highly parallel (many servers, and many cores per server, genuinely run at once).
+
+\`\`\`text
+Concurrent, not parallel (1 core, event loop):
+  Core: [Req A start][Req B start][Req A resume][Req C start][Req A finish]...
+
+Parallel (multiple cores/servers):
+  Core 1: [ Req A running ]
+  Core 2: [ Req B running ]   ← literally simultaneous
+  Core 3: [ Req C running ]
+\`\`\`
+
+## Why this distinction matters for load balancing
+
+A load balancer's entire value proposition is turning a system's available *parallelism* (multiple servers, multiple cores) into actual throughput by spreading concurrent client demand across it. If a system is I/O-bound (waiting on databases, external APIs) more than CPU-bound, a single server can already achieve enormous concurrency on its own via an event loop or thread pool — but it still needs a load balancer and multiple server instances to get real parallelism, because no amount of clever single-machine concurrency lets one machine exceed its own CPU and network interface limits. Recognizing whether a bottleneck is a concurrency problem (badly structured code blocking unnecessarily) or a genuine capacity problem (correctly structured code that's simply run out of parallel hardware) is exactly what determines whether the fix is "restructure this code to not block" or "add more servers behind the load balancer."
+
+## Load balancing vs failover — different jobs, often confused
+
+Both mechanisms decide where traffic goes, and both involve a pool of servers, which is why they're easy to conflate — but they answer different questions and typically operate at different times.
+
+- **Load balancing** answers "given several *healthy* servers, which one should handle this request?" — it runs continuously, on every single request, under normal operating conditions, optimizing for even distribution and performance.
+- **Failover** answers "this server (or entire region) just died — where does its traffic go now?" — it's an exceptional, reactive event triggered by a health check failure, not a routine decision made per-request.
+
+They compose rather than compete: a load balancer typically owns both jobs in practice, using its health checks to notice a dead node and simply stop including it in the normal distribution algorithm — from the balancer's point of view, failover is just "load balancing across a server pool that got one node smaller, automatically."
+
+**Active-passive failover** keeps a standby replica idle, ready to take over the moment the active node fails — simple to reason about, but wastes the standby's capacity entirely while nothing is wrong, and the failover itself (promoting the passive node, redirecting traffic) takes some nonzero time during which the system is degraded. **Active-active failover** runs multiple nodes actively serving traffic simultaneously, so if one dies, the others are already warm and already receiving a share of traffic — failover is nearly instantaneous (just stop routing to the dead node) and no capacity sits idle, at the cost of needing every active node to independently handle real production load and any data replication between them to already be happening continuously, not triggered only at failover time.
+
+> **Key idea:** Concurrency is about structuring work to make overlapping progress, parallelism is about literally executing work at the same instant, and a load balancer converts real parallel hardware into throughput for concurrent demand; separately, load balancing distributes traffic across healthy nodes continuously while failover is the reactive process — active-passive or active-active — of rerouting away from a node that just died.`,
+    },
   ],
 }
