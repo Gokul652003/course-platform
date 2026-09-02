@@ -138,5 +138,91 @@ Notice what this buys the checkout service: it doesn't need to know anything abo
 
 > **Key idea:** Message queues decouple producers from consumers by inserting a durable buffer between them, letting each side fail and scale independently while the queue smooths out bursty traffic and enables retries; most real systems provide at-least-once delivery, which pushes the responsibility for correctness onto consumers being written to be idempotent.`,
     },
+    {
+      name: "Rate Limiting & Rate Limiting Algorithms",
+      minutes: 11,
+      intro: "Understand why systems rate limit traffic, then work through the mechanics and trade-offs of token bucket, leaky bucket, and window-based algorithms.",
+      content: `## Why systems rate limit
+
+**Rate limiting** caps how many requests a client can make in a given window of time. It shows up almost everywhere a system is exposed to traffic it doesn't fully control, for a few distinct reasons:
+
+- **Protecting backend resources** — a single misbehaving client (a buggy retry loop, a runaway script) can otherwise consume a disproportionate share of shared capacity, degrading service for everyone else.
+- **Fair usage** — in a multi-tenant system, rate limits stop one customer's traffic from starving another's, independent of whether the traffic is malicious or just unexpectedly heavy.
+- **Abuse and DoS mitigation** — rate limiting (often combined with the CDN-level protections from the previous module) is a first line of defense against both deliberate abuse and accidental self-inflicted traffic storms.
+- **Tiered product plans** — a common commercial pattern where a free tier gets a low limit (e.g. 100 requests/day) and paid tiers get progressively higher ones, using the exact same rate-limiting infrastructure as a monetization lever.
+
+Rate limits are typically enforced at the API gateway (previous lesson), since that's the single point every request already passes through, though they can also be applied per-service or even per-endpoint for finer control.
+
+## Token bucket
+
+Picture a bucket that holds up to \`N\` tokens. Tokens are added to the bucket at a steady rate (e.g. 10 per second) up to its capacity; every incoming request must remove one token to proceed, and is rejected (or queued) if the bucket is empty.
+
+\`\`\`text
+Bucket capacity: 10 tokens.  Refill rate: 10 tokens/sec.
+
+t=0.0s: bucket full (10 tokens). Burst of 10 requests arrives → all
+        succeed instantly, bucket now empty.
+t=0.1s: 1 token has refilled → 1 more request can succeed.
+t=1.0s: bucket back to full → another burst of 10 can succeed.
+\`\`\`
+
+The defining property: **token bucket allows short bursts above the average rate**, as long as the bucket has accumulated tokens to spend, while still enforcing that the *long-run* average never exceeds the refill rate. This maps naturally onto real traffic, which is rarely perfectly smooth — a user might fire off five requests in the same second, then none for a minute. It's the most widely used rate-limiting algorithm in practice (AWS, Stripe, and many API gateways default to it) precisely because it tolerates realistic burstiness without being permissive about sustained overuse.
+
+## Leaky bucket
+
+Leaky bucket flips the mental model: incoming requests fill a bucket (really a queue), and requests "leak" out of the bottom at a fixed, constant rate to be processed. If the bucket overflows because requests are arriving faster than they leak out, new requests are dropped.
+
+\`\`\`text
+Requests in ──► [ queue, capacity N ] ──► leak out at fixed rate ──► processed
+                        │
+                        └── if full, incoming requests are rejected
+\`\`\`
+
+Unlike token bucket, leaky bucket **enforces a strictly constant outflow rate**, regardless of how bursty the input was — it smooths traffic rather than merely capping it. This makes it a better fit when the downstream system genuinely cannot handle bursts at all and needs a perfectly steady processing rate (think of it as a built-in queueing/smoothing mechanism, similar in spirit to the message queues from the previous lesson), at the cost of adding latency to requests that arrive faster than the leak rate, since they have to wait their turn in the bucket rather than being served immediately the way a token-bucket burst would be.
+
+## Fixed window counter
+
+The simplest approach: divide time into fixed windows (e.g. one-minute buckets aligned to the clock), keep a counter per window, and reject requests once the counter hits the limit for the current window; the counter resets to zero at each window boundary.
+
+\`\`\`text
+Limit: 100 requests/minute.
+
+12:00:00–12:00:59 → counter starts at 0, caps at 100, resets at 12:01:00.
+12:01:00–12:01:59 → counter starts at 0 again, independent of the last window.
+\`\`\`
+
+Cheap to implement (one counter, one reset) but has a well-known edge-case flaw: a client can send 100 requests in the last second of one window and another 100 in the first second of the next window — 200 requests in roughly two seconds, double the intended limit — simply because the windows reset at a fixed boundary rather than tracking a genuinely rolling period.
+
+## Sliding window log
+
+Fixes the fixed-window boundary problem by tracking the exact timestamp of every request in a log, and counting how many timestamps fall within the trailing window (e.g. "the last 60 seconds," measured from *right now*, not from a fixed clock boundary) on every new request.
+
+This is fully accurate — no boundary exploit is possible, because the window slides continuously rather than resetting — but it's the most expensive option: it requires storing a timestamp per request (not just a counter) and scanning/pruning that log on every check, which becomes a real memory and compute cost at high request volumes.
+
+## Sliding window counter
+
+A practical middle ground: keep two fixed-window counters (the current window and the previous one), and estimate the count in the trailing rolling window as a weighted combination of the two, based on how far into the current window you are:
+
+\`\`\`text
+estimated_count = (previous_window_count * overlap_fraction) + current_window_count
+
+# e.g. 30 seconds into a 60-second window means the trailing 60s window
+# overlaps the previous window by 50% ("overlap_fraction" = 0.5)
+\`\`\`
+
+This approximates the accuracy of a sliding window log (no hard boundary exploit, since the estimate accounts for the tail of the previous window) while keeping the storage cost of a fixed window counter (just two numbers, not a full request log) — which is why it's the algorithm most high-traffic production rate limiters actually converge on.
+
+## Choosing between them
+
+| Algorithm | Allows bursts | Storage cost | Accuracy at boundaries |
+|---|---|---|---|
+| Token bucket | Yes, up to bucket size | Low | Good |
+| Leaky bucket | No — smooths to constant rate | Low | Good |
+| Fixed window counter | Yes, unintentionally (boundary flaw) | Lowest | Poor |
+| Sliding window log | No | High | Perfect |
+| Sliding window counter | Slightly | Low | Very good (approximate) |
+
+> **Key idea:** Rate limiting protects shared resources, enforces fairness, and mitigates abuse; token bucket (tolerates bursts against a long-run average) and leaky bucket (smooths to a constant outflow) are the two classic mental models, while fixed window, sliding window log, and sliding window counter trade off storage cost against boundary accuracy — with sliding window counter the common production sweet spot between the two extremes.`,
+    },
   ],
 }
