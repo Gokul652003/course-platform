@@ -89,5 +89,59 @@ Knowing the principles above matters less than recognizing the failure patterns 
 
 > **Key idea:** Scalable systems are built from statelessness, caching, async processing, deliberate data-layer scaling, and load balancing working together — and most real-world outages trace back to one of a short list of recognizable bottlenecks: an overloaded single database, synchronous call chains, chatty APIs, hot keys, or queues with no backpressure.`,
     },
+    {
+      name: "Choosing the Right Scalability Approach",
+      minutes: 10,
+      intro: "Work through three different systems under stress and reason about which scalability levers actually apply to each — because \"scale horizontally\" isn't always the right first move.",
+      content: `## Scalability is not one-size-fits-all
+
+It's tempting to treat "add more servers" as the universal answer to a system under load. In practice, the right fix depends entirely on *where* the pressure actually is — read-heavy systems, write-heavy systems, and bursty systems all fail differently, and each responds best to a different combination of the levers introduced in the previous lessons: read replicas, caching, sharding, queueing, horizontal scaling, and CDNs. Reasoning through three contrasting systems makes this concrete.
+
+## Case 1: A read-heavy social feed
+
+**Symptom:** A social app's home feed — read constantly, written to relatively rarely (a post is written once, then read by thousands of followers). The database is pegged on CPU, and it's almost entirely serving \`SELECT\` queries.
+
+**What doesn't help much:** Sharding the database by user ID. Since the bottleneck is read volume, not write volume or data size, sharding adds real complexity (cross-shard queries to assemble a feed spanning many followed users) without addressing the actual problem.
+
+**What helps:**
+- **Caching the feed itself**, not just individual posts — a pre-computed feed per user, refreshed on a schedule or on write, turns an expensive fan-out query into a cache hit.
+- **Read replicas** so read traffic is spread across several database copies instead of hammering the single writer.
+- **A CDN** for any static or semi-static content embedded in the feed (images, videos), so the origin servers never see that traffic at all.
+
+The pattern: read-heavy systems scale by multiplying read capacity (replicas, caches, CDN) far more than by partitioning write capacity.
+
+## Case 2: A write-heavy IoT ingestion pipeline
+
+**Symptom:** Millions of sensors each sending a small reading every few seconds. The system is almost entirely writes, arriving continuously, and needs to durably store all of them without losing data.
+
+**What doesn't help much:** Read replicas — there's barely any read traffic to spread out, so adding replicas does nothing for the actual bottleneck. Caching also doesn't help; there's nothing to cache when nobody's re-reading the same data repeatedly.
+
+**What helps:**
+- **A message queue in front of the database** — sensors write to a queue (which can absorb huge burst-write throughput cheaply) instead of directly to the database, and a pool of consumers drains the queue into storage at a sustainable, controlled rate. This decouples "how fast data arrives" from "how fast the database can durably write it."
+- **Sharding by a key that spreads writes evenly** — sharding by sensor ID (or a hash of it) so no single shard absorbs a disproportionate share of the write volume, avoiding the hot-partition problem from the previous lesson.
+- **Horizontal scaling of the consumer/ingestion tier**, since consuming from the queue is naturally stateless and parallelizable.
+
+The pattern: write-heavy systems scale by decoupling arrival rate from processing rate (queueing) and by partitioning write volume across many writers (sharding) — caching and read replicas are close to irrelevant here.
+
+## Case 3: A bursty flash-sale ticket system
+
+**Symptom:** Normal traffic is modest, but at a scheduled sale-start time, demand spikes 500x for a few minutes as everyone tries to buy a small number of tickets at once, then drops back to near zero.
+
+**What doesn't help much:** Permanently provisioning enough horizontally-scaled capacity to handle peak load — it would sit almost entirely idle 99% of the time, at significant ongoing cost, just to cover a few minutes a day.
+
+**What helps:**
+- **Autoscaling** the stateless application tier aggressively right before the known burst, and back down after — horizontal scaling that tracks demand rather than being fixed.
+- **A queue (or a virtual waiting room) absorbing the burst** at the front door, admitting requests to the actual purchase flow at a rate the backend can sustain, rather than letting every request hit the database simultaneously.
+- **Rate limiting** (Module 8) to prevent any single client — or a scripted bot — from consuming a disproportionate share of capacity during the scramble.
+- Careful handling of the one genuinely hard part — **not overselling a scarce resource** — usually via a database-level constraint or a distributed lock on each ticket, since this is a correctness problem that no amount of horizontal scaling solves by itself.
+
+The pattern: bursty systems scale by absorbing and smoothing the burst (queueing, autoscaling, rate limiting) rather than by permanently over-provisioning for a peak that's rare, and they need explicit attention to correctness under contention, which raw capacity doesn't fix.
+
+## The actual skill
+
+Across all three cases, the lever that helps is the one that matches where the pressure actually is: multiply reads for read-heavy systems, decouple and partition writes for write-heavy systems, and absorb-and-smooth for bursty systems. "Just add more servers" only reliably helps the stateless, horizontally-scalable tiers — it does nothing for an overloaded single database, does nothing for a write bottleneck at the storage layer, and does nothing for a correctness problem like overselling. Diagnosing *where* the bottleneck actually lives always comes before picking the tool to fix it.
+
+> **Key idea:** The right scalability lever depends on where the pressure actually is — read-heavy systems scale via replicas, caching, and CDNs; write-heavy systems scale via queueing and write-sharding; bursty systems scale via autoscaling, admission control, and explicit correctness guarantees — and reflexively reaching for horizontal scaling everywhere skips the more important step of diagnosing the actual bottleneck first.`,
+    },
   ],
 }
