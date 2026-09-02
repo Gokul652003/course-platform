@@ -230,5 +230,73 @@ The problem it solves: state-dependent behavior scattered across conditionals th
 
 > **Key idea:** Creational patterns (Singleton, Factory, Builder) control how and when objects get created; structural patterns (Adapter, Decorator, Facade) control how objects and interfaces compose without forcing changes to existing code; and behavioral patterns (Observer, Strategy, State) control how objects interact and delegate — in every case, the pattern is the answer to one specific, recurring design pressure, and naming that pressure matters more in an interview than reciting the pattern's definition.`,
     },
+    {
+      name: "Cracking the System Design Interview — Approach & Case Studies",
+      minutes: 12,
+      intro: "Walk through a repeatable step-by-step framework for any system design interview, then apply it end to end to a URL shortener and a rate limiter, and learn the pitfalls that sink most attempts.",
+      content: `## A repeatable framework, not a memorized answer
+
+System design interviews reward a *process* more than a specific memorized design, because the interviewer is really evaluating how you think under ambiguity. The same six-step framework applies to almost any prompt:
+
+1. **Clarify requirements and scope.** Never start designing before asking questions. What's the core functionality? What's explicitly out of scope? Who are the users, and roughly at what scale? A design for "100 users" and a design for "100 million users" look nothing alike, and guessing wrong here wastes the rest of the interview.
+2. **Estimate scale.** Rough back-of-envelope numbers — requests per second, storage growth per day, read/write ratio — that will drive real decisions later (whether you need caching, sharding, a CDN) instead of adding them reflexively.
+3. **Define the API.** Sketch the core endpoints/interfaces the system exposes, with enough detail (inputs, outputs) to pin down exactly what each component needs to do.
+4. **High-level design.** Draw the major components and how data flows between them — client, load balancer, services, database, cache — the architecture-level picture from earlier in this course.
+5. **Deep dive.** Pick the one or two components the interviewer cares most about (often signaled by their follow-up questions) and go deep: schema design, a specific algorithm, how a particular failure is handled.
+6. **Identify bottlenecks and trade-offs.** Proactively call out where the design would break under more load, and what you'd change — this is usually where strong candidates separate themselves, because it shows awareness that no design is perfect, only appropriate for its stated constraints.
+
+## Case study: design a URL shortener
+
+**1. Requirements.** Core: given a long URL, return a short one; visiting the short URL redirects to the original. Scale: assume a large write volume of new URLs and a much larger read volume of redirects (reads dominate writes by a wide margin in this kind of system).
+
+**2. API.**
+
+\`\`\`text
+POST /shorten   { longUrl } -> { shortUrl }
+GET  /{code}    -> 302 redirect to the original long URL
+\`\`\`
+
+**3. Key generation.** The core design decision: how to generate the short code. A common approach is base62 encoding (\`[a-zA-Z0-9]\`) of an auto-incrementing ID, giving a compact, collision-free code without needing to check for uniqueness on every write. An alternative — hashing the long URL and truncating — is simpler conceptually but has to actively handle hash collisions, which the counter-based approach avoids by construction.
+
+**4. High-level design.**
+
+\`\`\`text
+Client -> Load Balancer -> Shortening Service -> Database (longUrl <-> shortCode)
+                                    |
+                                  Cache (hot short codes -> long URLs, for fast redirects)
+\`\`\`
+
+**5. Deep dive.** The redirect path is read-heavy and latency-sensitive, so it's the natural place to add a cache in front of the database — a small fraction of URLs (recently created, or viral links) account for a large fraction of redirect traffic, making this a strong candidate for caching. The database itself is a simple key-value shape (short code → long URL), which favors a NoSQL store or a simple indexed SQL table over anything more complex.
+
+**6. Bottlenecks.** At very large scale, the counter generating IDs becomes a single point of contention — solved by partitioning ID ranges across multiple counter services, or switching to a distributed ID scheme. The redirect endpoint is the highest-traffic path in the whole system, so it's also the first candidate for a CDN or edge caching layer if redirects need to be even faster globally.
+
+## Case study: design a rate limiter as a service
+
+**1. Requirements.** Core: given a client identifier (user ID, API key, IP), allow or reject a request based on how many requests that client has made recently, according to a configured limit (e.g., 100 requests/minute). Must work correctly even with multiple application servers behind a load balancer.
+
+**2. API.** A single internal check, called by other services before processing a request: \`allowRequest(clientId) -> boolean\`.
+
+**3. Algorithm choice.** A **token bucket** (each client has a bucket that refills at a steady rate and is decremented per request, allowing some burstiness up to the bucket size) or a **sliding window log/counter** (tracking request timestamps in a recent window) are the two most commonly discussed approaches — the token bucket is usually preferred for its simplicity and its natural tolerance for short bursts, while sliding-window approaches give more precise control at the cost of more state per client.
+
+**4. High-level design.**
+
+\`\`\`text
+Service A -----\\
+Service B ------> Rate Limiter (backed by shared Redis) -> allow / reject
+Service C -----/
+\`\`\`
+
+**5. Deep dive.** Because multiple application servers all need to enforce the *same* limit for a given client, per-server in-memory counters don't work — a client could get 100 requests through each of five servers before any of them notices. The fix is centralizing counters in a fast, shared store like Redis, using its atomic increment operations to avoid race conditions between concurrent requests hitting the limiter at the same instant.
+
+**6. Bottlenecks.** The shared Redis instance becomes both a single point of failure and a potential latency bottleneck, since every rate-limited request now makes an extra round trip to it — mitigated by keeping the check extremely cheap (a single atomic operation), and by treating the rate limiter's own availability as a first-class reliability concern, since if it goes down, the services depending on it need a defined fallback (fail open and allow traffic through, or fail closed and reject it) rather than an undefined crash.
+
+## The pitfalls that sink most attempts
+
+- **Jumping straight to a solution before clarifying requirements** — designing for the wrong scale or the wrong core feature because the assumptions were never actually checked.
+- **Ignoring non-functional requirements** — a design that handles the happy path but never mentions availability, consistency trade-offs, or what happens when a component fails reads as incomplete, no matter how clean the happy-path diagram is.
+- **Over-engineering** — reaching for sharding, multi-region active-active, and a message queue for a system whose stated scale doesn't need any of them; matching the design to the actual stated constraints matters more than showing off every technique from this course in one answer.
+
+> **Key idea:** The same six-step framework — clarify requirements, estimate scale, define the API, sketch the high-level design, deep-dive on what matters most, then call out bottlenecks and trade-offs — applies to nearly any system design prompt, as the URL shortener and rate limiter walkthroughs show; and the biggest risks to avoid are designing before clarifying, forgetting non-functional requirements, and over-engineering past what the stated scale actually calls for.`,
+    },
   ],
 }
