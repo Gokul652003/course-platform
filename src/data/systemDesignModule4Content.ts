@@ -57,5 +57,66 @@ Most real production systems use both, for different pieces of data — a relati
 
 > **Key idea:** SQL vs NoSQL isn't a single spectrum from "less scalable" to "more scalable" — it's a choice between rigid-schema, strongly-consistent relational storage (ACID) and several distinct non-relational models trading strict consistency for flexibility, availability, and raw write throughput (BASE); the right pick follows from the actual schema shape, query pattern, consistency requirement, and write volume of the specific data being stored, not a blanket rule.`,
     },
+    {
+      name: "Database Replication & Sharding",
+      minutes: 11,
+      intro: "Separate two commonly confused techniques — copying data for availability and read scaling versus splitting data for write scaling — and see how each is actually implemented.",
+      content: `## Replication: many copies of the same data
+
+**Replication** means keeping multiple copies of the same dataset on different machines, so that losing one machine doesn't lose the data, and reads can be spread across several copies instead of hitting a single instance.
+
+The most common setup is **leader-follower (primary-replica) replication**: one node — the leader — accepts all writes, and one or more follower nodes continuously receive a stream of those changes and apply them locally, ending up with (eventually) the same data as the leader.
+
+\`\`\`text
+        writes
+Client ────────▶ Leader
+                    │
+        replication stream (async or sync)
+                    │
+          ┌─────────┼─────────┐
+          ▼         ▼         ▼
+      Follower1  Follower2  Follower3
+          ▲         ▲         ▲
+          └─────────┴─────────┘
+                reads
+Client ─────────────────────────▶
+\`\`\`
+
+Reads can be served from any follower (or the leader), spreading read load across every node instead of concentrating it on one — exactly the lever used for the read-heavy feed system in the previous module. Writes, however, still all funnel through the single leader, which means leader-follower replication scales *reads*, not *writes*.
+
+**Synchronous vs asynchronous replication** is the key trade-off inside this pattern:
+- **Synchronous** — the leader waits for at least one follower to confirm it received the write before acknowledging success to the client. Stronger durability (a follower is guaranteed to have the data if the leader dies right after acknowledging), but higher write latency, since every write waits on a network round trip to a follower.
+- **Asynchronous** — the leader acknowledges the write immediately and streams it to followers in the background. Lower latency, but a real risk: if the leader crashes before a follower catches up, that most recent write can be lost entirely, and followers briefly serve stale data (replication lag) even in the normal case.
+
+**Failover** is what happens when the leader dies: one follower is promoted to be the new leader (automatically, in most managed database services, via a health-check-driven election), and the rest of the followers — and the application — redirect to it. Getting this right without losing writes or briefly accepting writes on two different "leaders" at once (split brain) is one of the genuinely hard problems in distributed databases, and it's why most teams use a managed replication solution rather than building failover by hand.
+
+Some systems use **multi-leader replication** instead — more than one node accepts writes, useful when writes need to happen close to users in different regions — but this reintroduces the problem replication is otherwise good at avoiding: if the same record is written on two leaders at nearly the same time, the system needs a conflict-resolution strategy (last-write-wins, merge logic, or pushing the conflict back to the application) to reconcile them.
+
+## Sharding: splitting the data itself
+
+Replication solves "too many readers" and "one machine dying." It does not solve **"the data itself, or the write volume, is too big for one machine to hold or handle."** That's what **sharding** (a specific, database-level form of the broader concept of data partitioning) is for: splitting a dataset into disjoint pieces — shards — each living on a different machine, so no single machine needs to store or process all of it.
+
+\`\`\`text
+Shard A (users 0-999)     Shard B (users 1000-1999)     Shard C (users 2000-2999)
+    Machine 1                   Machine 2                     Machine 3
+\`\`\`
+
+The critical decision is the **shard key** — the field used to decide which shard a given row belongs on:
+
+- **Range-based sharding** — assign contiguous ranges of the key to each shard (users 0-999 on shard A, 1000-1999 on shard B). Simple, and range queries within a shard are efficient, but it's prone to **hot shards**: if user IDs are assigned sequentially and new users are the most active, the newest shard absorbs a disproportionate share of the load while older shards sit comparatively idle — the same hot-partition problem from Module 3, now at the database layer.
+- **Hash-based sharding** — hash the key and use the hash to pick a shard (\`shard = hash(user_id) % num_shards\`). Spreads load far more evenly, since a good hash function distributes keys near-uniformly regardless of any pattern in the original values, but range queries ("all users created this week") now have to fan out to every shard, since consecutive keys are scattered across all of them.
+
+**Resharding is the operational pain point.** Adding a new shard to a hash-based scheme changes \`num_shards\`, which changes almost every key's hash-modulo assignment — in the naive scheme above, nearly all data has to be physically moved to new shards at once. This is exactly the problem **consistent hashing** (covered in Module 6, in the context of load balancing, but applicable to sharding too) was invented to solve: it limits a resharding event to moving only the fraction of data that must move, not the whole dataset.
+
+## Replication and sharding together
+
+These two techniques solve different problems and are normally combined, not chosen between: a large system commonly shards its data across many machines *and* replicates each shard, so each individual shard both distributes its write load across the sharding scheme and survives losing any one of its own machines.
+
+\`\`\`text
+Shard A (leader + 2 followers)   Shard B (leader + 2 followers)   Shard C (leader + 2 followers)
+\`\`\`
+
+> **Key idea:** Replication keeps multiple copies of the *same* data to survive node failure and scale reads (with a synchronous/asynchronous trade-off between durability and latency), while sharding splits the data itself across machines by a shard key to scale writes and total data volume — hash-based sharding spreads load more evenly than range-based sharding at the cost of efficient range queries, and large systems typically combine both, replicating each individual shard.`,
+    },
   ],
 }
