@@ -133,5 +133,67 @@ A typical production setup layers both: a web server (often the same reverse pro
 
 > **Key idea:** A forward proxy hides the client from the server it's talking to; a reverse proxy hides the server from the client — the same mechanism, pointed in opposite directions, and reverse proxies are the workhorse behind load balancing, TLS termination, and inbound caching in most real backend architectures; a web server hands out static files while an application server runs your actual business logic, and production systems typically layer both.`,
     },
+    {
+      name: "Long Polling, Short Polling & WebSockets",
+      minutes: 10,
+      intro: "Compare the three standard ways a client learns about server-side changes in near real time, and match each one to the kind of feature it's actually built for.",
+      content: `## The problem: HTTP was built for the client to ask first
+
+Plain HTTP is a request/response protocol — the client always initiates, the server can only reply. That's a problem the moment a feature needs the *server* to tell the client something happened: a new chat message arrived, a live score changed, a background job finished. Three techniques have emerged to work around that constraint, each with a real trade-off between simplicity, latency, and resource cost.
+
+## Short polling: ask over and over
+
+The client repeatedly sends a request at a fixed interval — "anything new? anything new? anything new?" — and the server responds immediately either way, with fresh data or an empty "nothing changed" response.
+
+\`\`\`text
+Client --request--> Server (nothing new)  --response-->
+   |  (wait 3s)
+Client --request--> Server (nothing new)  --response-->
+   |  (wait 3s)
+Client --request--> Server (new data!)    --response-->
+\`\`\`
+
+Short polling is trivial to implement — it's just a \`setInterval\` calling a normal HTTP endpoint — but it's wasteful on both ends. Poll too slowly and updates feel laggy (data can sit for up to a full interval before the client notices); poll too fast and you're firing mostly-empty requests constantly, burning server capacity and client battery for no benefit. It also means an update is only ever as fresh as the last poll, never immediate.
+
+## Long polling: ask once, wait for an answer
+
+The client sends a request exactly like short polling, but this time the server *doesn't respond immediately* if there's nothing new — it holds the connection open and waits until either new data becomes available or a timeout is hit. As soon as the server responds (with data, or an empty timeout response), the client immediately opens a new long-poll request.
+
+\`\`\`text
+Client --request--> Server (holds connection open...)
+                        |  (2 minutes pass, still nothing)
+                        |  (new data arrives!)
+                     <--response-- (data)
+Client --request--> Server (holds connection open again...)
+\`\`\`
+
+This gets much closer to real-time delivery than short polling — data reaches the client the moment it's available, not on the next fixed interval — while still using plain HTTP under the hood, so it works through the same infrastructure (proxies, load balancers, firewalls) as any other HTTP request with no special handling required. The cost is on the server: it now has to hold open a large number of idle-but-connected requests simultaneously, each consuming a thread or connection slot while waiting, which doesn't scale as gracefully as a stateless request/response model once you have many concurrent clients.
+
+## WebSockets: stop asking, just stay connected
+
+A WebSocket starts life as a normal HTTP request that asks to "upgrade" the connection; once the server agrees, that same TCP connection stays open indefinitely as a **full-duplex** channel — both client and server can push messages to each other at any time, with no request/response pairing required at all.
+
+\`\`\`text
+Client --HTTP upgrade request-->
+                              <-- 101 Switching Protocols --
+Client <====== persistent, bidirectional connection ======> Server
+   Client can send anytime.  Server can push anytime.  No "asking" involved.
+\`\`\`
+
+This is the lowest-latency option and the only one of the three that lets the server push data without the client having initiated anything in that moment — genuinely necessary for something like a chat app where either side can send a message at any time. The trade-off is operational complexity: WebSocket connections are stateful and long-lived, which complicates horizontal scaling (a load balancer needs to route a client back to the same server instance holding its connection, or the backend needs a shared layer like Redis pub/sub to broadcast messages across server instances), and infrastructure like some corporate proxies or older load balancers may not handle the protocol upgrade cleanly.
+
+## Choosing between them
+
+| | Short polling | Long polling | WebSockets |
+|---|---|---|---|
+| Latency | Bound by poll interval | Near-immediate | Immediate |
+| Server cost per idle client | Low (brief requests) | Moderate (held-open connections) | Moderate-high (persistent connection) |
+| Infrastructure complexity | None | None (plain HTTP) | Higher (sticky routing / pub-sub for scale) |
+| Good fit | Infrequent updates, simplicity matters more than freshness | Real-time-ish updates without WebSocket infrastructure | True bidirectional real-time (chat, collaborative editing, live gameplay) |
+
+A practical rule of thumb: reach for short polling when staleness of a few seconds is genuinely fine (a dashboard metric that updates slowly), long polling when you want near-real-time delivery without taking on WebSocket infrastructure, and WebSockets specifically when the server needs to push unprompted or the interaction is genuinely bidirectional and frequent, like a live chat.
+
+> **Key idea:** Short polling repeatedly asks and accepts staleness up to the poll interval, long polling asks once and lets the server hold the request open until there's something to say, and WebSockets abandon the request/response model entirely for a persistent, bidirectional connection — pick based on how fresh the data needs to be versus how much held-open-connection cost and infrastructure complexity you're willing to take on.`,
+    },
   ],
 }
