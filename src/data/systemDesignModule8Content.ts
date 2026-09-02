@@ -68,5 +68,75 @@ A mobile app screen showing "your order" might need: the order itself, the curre
 
 > **Key idea:** An API gateway is the single entry point between external clients and a system's backend services, centralizing routing, authentication, request/response transformation, aggregation, TLS termination, rate limiting, and observability so individual services don't each have to reimplement them — at the cost of the gateway becoming shared, critical infrastructure that itself needs to be scaled and made highly available.`,
     },
+    {
+      name: "Message Queues — Async Communication at Scale",
+      minutes: 11,
+      intro: "Learn why asynchronous messaging decouples producers from consumers, the core delivery guarantees, and walk through a concrete order-processing example.",
+      content: `## Synchronous calls couple you to the slowest link
+
+When service A calls service B directly (a synchronous HTTP call) and waits for a response, A's own success and latency now depend entirely on B being up, fast, and able to keep up with A's request rate. If B is temporarily slow or down, A is stuck waiting — or failing — right along with it. Chain enough services together this way and a slowdown anywhere in the chain propagates backward through every caller.
+
+A **message queue** breaks this coupling by inserting a durable buffer between the producer of work and the consumer that processes it. Instead of A calling B directly and waiting, A drops a message describing the work onto a queue and moves on immediately; B (running independently, at its own pace) picks messages off the queue and processes them whenever it's ready.
+
+\`\`\`text
+Synchronous:  Producer ──call, wait──► Consumer
+                (producer blocked until consumer responds)
+
+Asynchronous: Producer ──publish──► [ Queue ] ──consume──► Consumer
+                (producer moves on immediately; queue absorbs the gap)
+\`\`\`
+
+## What decoupling actually buys you
+
+- **Producers and consumers can fail or scale independently.** If the consumer is temporarily down, messages simply accumulate in the queue instead of failing outright — they get processed once the consumer recovers. If the producer suddenly sends ten times its normal volume, the queue absorbs the burst instead of overwhelming the consumer directly.
+- **Traffic spikes get smoothed out.** A consumer can process messages at a steady, sustainable rate even while producers publish in unpredictable bursts — the queue acts as a shock absorber between bursty input and steady processing capacity.
+- **Retry semantics become natural.** If processing a message fails, it can be put back on the queue (or a retry queue) and attempted again later, without the producer needing to know or care that a retry even happened.
+- **New consumers can be added without touching producers.** A second, entirely independent consumer can start reading from the same queue (or a copy of the same stream, depending on the messaging model) to do something new with the same events, with zero changes to whatever is producing them.
+
+## Core vocabulary
+
+- **Producer** — anything that publishes a message onto the queue.
+- **Consumer** — anything that reads and processes messages from the queue.
+- **Queue / Topic** — the durable channel messages sit in between being produced and consumed. "Queue" typically implies point-to-point (one message, one consumer); "topic" typically implies publish/subscribe (one message, potentially many independent subscribers — see the pub/sub pattern from Module 2).
+- **Broker** — the actual system running the queue infrastructure (RabbitMQ, Kafka, AWS SQS, Google Pub/Sub).
+- **Dead-letter queue (DLQ)** — a separate holding queue where messages get routed after repeatedly failing to process, so a single poison message can't block the whole queue forever while still preserving it for later investigation instead of silently dropping it.
+
+## Delivery guarantees
+
+Not all queues guarantee the same thing about how many times a message is delivered, and the difference has real consequences for how consumers must be written:
+
+| Guarantee | Meaning | Consumer implication |
+|---|---|---|
+| **At-most-once** | A message is delivered zero or one times — it may be lost, but never duplicated | Simplest to implement, but any failure between send and process silently loses the message; rarely acceptable for anything that matters |
+| **At-least-once** | A message is delivered one or more times — it will never be silently lost, but can be redelivered | The overwhelmingly common default; consumers **must** be written to be idempotent (processing the same message twice produces the same result as once) |
+| **Exactly-once** | A message is delivered and processed exactly one time, no more, no less | The hardest and most expensive guarantee to provide correctly across a distributed system; often achieved in practice as "at-least-once delivery + idempotent processing," which behaves like exactly-once from the consumer's perspective without needing true exactly-once infrastructure |
+
+The practical takeaway most systems converge on: assume at-least-once delivery and design consumers to be **idempotent** — processing the same message twice (e.g. because of a retry after an ack was lost) should never double-charge a customer or double-ship an order. This is usually done by tracking a unique message/operation ID and skipping work you've already recorded as done.
+
+## A concrete example: order processing
+
+\`\`\`text
+1. Checkout service receives "place order" request, saves the order as
+   PENDING, and publishes an "OrderPlaced" message to a queue. Responds
+   to the user immediately — "order received" — without waiting for
+   fulfillment.
+
+2. Payment consumer reads "OrderPlaced", charges the customer, and
+   publishes "PaymentCompleted" (or "PaymentFailed").
+
+3. Inventory consumer reads "PaymentCompleted", reserves stock, and
+   publishes "InventoryReserved".
+
+4. Shipping consumer reads "InventoryReserved" and kicks off fulfillment.
+
+5. If any step fails, that consumer publishes a failure event instead,
+   which a separate compensation consumer picks up to roll back prior
+   steps (e.g. refund the payment) and notify the customer.
+\`\`\`
+
+Notice what this buys the checkout service: it doesn't need to know anything about payments, inventory, or shipping, doesn't block the user waiting for all four steps to finish synchronously, and each downstream stage can be scaled, deployed, and even fail independently without taking the others down with it. This staged, event-driven pipeline pattern reappears constantly in real systems and is the practical foundation for the deeper event-driven architecture material in Module 10.
+
+> **Key idea:** Message queues decouple producers from consumers by inserting a durable buffer between them, letting each side fail and scale independently while the queue smooths out bursty traffic and enables retries; most real systems provide at-least-once delivery, which pushes the responsibility for correctness onto consumers being written to be idempotent.`,
+    },
   ],
 }
