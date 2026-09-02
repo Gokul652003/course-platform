@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette, Wand2, FileType2, RefreshCw } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette, Wand2, FileType2, RefreshCw, Network } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { goModules, goCourse } from "./goCourseData"
@@ -8,6 +8,7 @@ import { cssModules, cssCourse } from "./cssCourseData"
 import { scssModules, scssCourse } from "./scssCourseData"
 import { tsModules, tsCourse } from "./tsCourseData"
 import { tanstackQueryModules, tanstackQueryCourse } from "./tanstackQueryCourseData"
+import { systemDesignModules, systemDesignCourse } from "./systemDesignCourseData"
 import { awsModules, awsCourse } from "./awsCourseData"
 import { htmlModules, htmlCourse } from "./htmlCourseData"
 import { dockerModules, dockerCourse } from "./dockerCourseData"
@@ -95,6 +96,14 @@ function TanstackQueryGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/20">
       <RefreshCw size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function SystemDesignGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/20">
+      <Network size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -320,6 +329,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-red-500 to-rose-600",
       text: "text-red-600 dark:text-red-400",
       border: "border-red-500/30",
+    },
+  },
+  {
+    id: "system-design",
+    title: systemDesignCourse.title,
+    tagline: systemDesignCourse.tagline,
+    description: systemDesignCourse.description,
+    modules: systemDesignModules,
+    course: systemDesignCourse,
+    icon: <SystemDesignGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${systemDesignCourse.stats.lessons} lessons`,
+      "HLD & LLD",
+      "Interview ready",
+    ],
+    accent: {
+      gradient: "from-indigo-500 to-purple-600",
+      text: "text-indigo-600 dark:text-indigo-400",
+      border: "border-indigo-500/30",
     },
   },
   {
