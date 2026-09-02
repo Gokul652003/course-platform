@@ -60,5 +60,67 @@ Each layer downstream is slower than the one above it, and each hit at a shallow
 
 > **Key idea:** Latency is the time one request takes; throughput is how much work completes per unit of time — they can trade off against each other (batching raises both latency and throughput at once), and caching is the highest-leverage latency fix available because it lets a request skip the slow path entirely, with real systems stacking caches at multiple layers between the user and the data.`,
     },
+    {
+      name: "Distributed Caching, Cache Eviction Policies & Cold/Warm Caches",
+      minutes: 11,
+      intro: "Compare local vs distributed caches, learn the major eviction policies (LRU, LFU, FIFO, TTL), and understand cold vs warm cache behavior.",
+      content: `## Local cache vs distributed cache
+
+Once an application runs on more than one server, "where does the cache live" becomes an architectural decision with real consequences.
+
+- **Local (in-process) cache** — a plain in-memory map living inside each application instance. Extremely fast (no network hop at all — it's a memory lookup), but every instance has its own copy. If you have ten app servers behind a load balancer, you effectively have ten separate caches that don't know about each other, which means a write on one server doesn't invalidate the stale copy sitting in the other nine.
+- **Distributed cache** — a separate, shared cache tier (Redis, Memcached) that every application instance talks to over the network. Slightly slower than a local lookup (it's a network round trip, even if a fast one), but there's exactly one copy of each cached value, so every instance sees the same, consistently invalidated data.
+
+Most production systems use both: a small, very hot local cache for the tiniest, most latency-critical lookups, backed by a distributed cache as the shared source of truth for everything else. The core tension to internalize is **consistency vs speed** — local caches are faster per lookup but harder to keep consistent across instances; distributed caches are the reverse.
+
+## The invalidation problem
+
+Caching would be trivial if data never changed. It does, and keeping a cache from serving stale data is famously one of the two hard problems in computer science. The two dominant strategies:
+
+- **TTL (time-to-live) expiration** — every cached entry is stamped with an expiry time; after that, it's treated as a miss and refetched. Simple, requires no coordination, but means clients can see stale data for up to the TTL window even after the source changes.
+- **Explicit invalidation** — when the underlying data changes, the write path actively deletes or updates the corresponding cache entry (or publishes an invalidation event other instances subscribe to). More accurate, but requires every code path that mutates data to remember to invalidate the right keys — miss one, and that entry silently goes stale forever.
+
+Most real systems combine both: explicit invalidation as the primary mechanism, with a TTL as a safety net that bounds the *maximum* staleness even if an invalidation gets missed somewhere.
+
+## Cache eviction policies: what to throw away when full
+
+A cache has finite size. Once it's full and a new item needs to be stored, something existing has to be evicted. Which item gets picked is what an eviction policy decides:
+
+| Policy | Evicts | Good for | Weakness |
+|---|---|---|---|
+| **LRU** (Least Recently Used) | The item that hasn't been accessed for the longest time | General-purpose workloads with temporal locality (recently used data tends to be used again soon) | A single large scan (e.g. a batch job reading everything once) can flush out genuinely hot data |
+| **LFU** (Least Frequently Used) | The item with the lowest total access count | Workloads with a stable set of "always popular" items (e.g. a product catalog's bestsellers) | Slow to adapt — an item that was hot yesterday but cold today still has a high historical count and resists eviction |
+| **FIFO** (First In, First Out) | The oldest item by insertion time, regardless of usage | Simple, predictable workloads, or as a cheap approximation when tracking access patterns is too expensive | Ignores usage entirely — can evict something accessed a second ago just because it happened to be inserted first |
+| **TTL-based** | Anything past its configured expiry, independent of recency/frequency | Data with a natural freshness window (a stock quote, a weather forecast) | Doesn't account for capacity pressure — a cache can still fill up between expirations |
+
+**LRU** is the default most general-purpose caches (including Redis's \`allkeys-lru\` policy) reach for first, because "recently used data is likely to be used again" holds for a surprisingly wide range of real workloads. LFU is worth reaching for specifically when you have a small set of consistently hot keys you never want evicted, even during a burst of one-off accesses to cold data. In practice, many systems layer TTL on top of whichever recency/frequency policy they use — TTL bounds staleness, the eviction policy handles capacity pressure.
+
+## Cold cache vs warm cache
+
+A cache's state isn't binary (empty or full) — it's better understood by hit rate over time:
+
+- **Cold cache** — freshly started (a new deployment, a server that just booted, a cache that was just flushed) with little or nothing stored yet. Almost every request is a miss, so the system briefly behaves as if the cache didn't exist at all — full latency, full load on the underlying database, for every request.
+- **Warm cache** — has been running long enough that it holds a representative set of frequently requested data, so its hit rate has climbed to a steady, high level.
+
+The gap between cold and warm matters most right after a deployment or a cache-tier restart: if you roll out a new version of your application and it flushes the cache (or you spin up a brand-new distributed cache cluster), your database can suddenly get hit with the full, uncached load it was previously shielded from — a real cause of production incidents nicknamed a "thundering herd" against the database.
+
+## Cache warming
+
+**Cache warming** is the practice of deliberately populating a cache with expected-hot data *before* real traffic arrives, rather than letting it fill up reactively from cold, request by request. Common approaches:
+
+\`\`\`text
+1. Pre-load on startup: replay a list of known-hot keys and fetch them into
+   cache as part of deployment, before the instance receives live traffic.
+2. Shadow traffic: mirror a sample of real production requests to a new
+   cache instance ahead of cutting traffic over to it.
+3. Scheduled refresh: a background job periodically re-fetches and
+   re-populates known-important keys, so they never fully expire under
+   normal operation.
+\`\`\`
+
+Warming matters most for systems with a small number of extremely hot keys and a large, spiky user base — a flash-sale product page, a trending news article — where the very first wave of traffic after a cold start would otherwise overwhelm the origin before the cache has a chance to organically warm up.
+
+> **Key idea:** Local caches are faster but per-instance and hard to keep consistent, while distributed caches are shared and consistent but pay a network hop; eviction policies (LRU for general recency-based workloads, LFU for stable hot sets, TTL for naturally time-bound data) decide what gets dropped when a cache fills up, and a cold cache — especially right after a deploy or restart — can expose the origin to full, unshielded load until it's warmed, which is exactly what deliberate cache-warming strategies exist to prevent.`,
+    },
   ],
 }
