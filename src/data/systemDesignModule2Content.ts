@@ -70,5 +70,55 @@ This isn't a purity contest, either — most large real-world systems land somew
 
 > **Key idea:** A monolith is one deployable unit — simple to build and deploy, but everything scales and fails together; microservices are many independently deployable services — independently scalable and better isolated, at the cost of network calls, distributed data consistency, and real operational overhead; the pragmatic default is to start monolithic and split out services only when a specific, concrete need (scaling, team autonomy, a genuine domain boundary) justifies the added complexity.`,
     },
+    {
+      name: "Event-Driven, Serverless & Stateless/Stateful Architectures",
+      minutes: 10,
+      intro: "Learn how event-driven systems decouple producers from consumers, what serverless actually trades away, and why statelessness is the default preference for scaling services.",
+      content: `## Event-driven architecture, briefly
+
+An **event-driven architecture** structures a system around the production, detection, and reaction to *events* — facts about something that happened ("order placed," "payment failed," "file uploaded") — rather than direct, synchronous calls between services. A **producer** emits an event onto an **event bus** (or message broker) without knowing or caring who, if anyone, is listening; one or more **consumers** subscribe to relevant events and react independently.
+
+\`\`\`text
+[Order Service] ──emits──► [Event Bus] ──delivers──► [Inventory Service]
+                                    │
+                                    ├──delivers──► [Notification Service]
+                                    │
+                                    └──delivers──► [Analytics Service]
+\`\`\`
+
+The payoff is **decoupling**: the order service doesn't need to know inventory, notifications, and analytics all care about "order placed" — it just emits the fact, and consumers can be added or removed later without touching the producer at all. This trades immediate consistency (the order service doesn't wait to confirm inventory was updated before returning) for flexibility and resilience — if the notification service is down, orders still get placed; notifications just catch up once it recovers. Module 10 goes deep on event-driven patterns (event sourcing, event streaming, failure handling); this lesson is the vocabulary this rest of the course assumes you have.
+
+## Serverless architecture
+
+**Serverless** (more precisely, Functions-as-a-Service, or FaaS — AWS Lambda, Google Cloud Functions, Azure Functions) lets you deploy individual functions that the cloud provider runs on demand, without you provisioning or managing any server. The provider handles scaling — from zero to thousands of concurrent invocations and back — automatically.
+
+**What you gain:** no server management at all (no OS patching, no capacity planning), a cost model that charges per invocation/execution time rather than for idle server capacity (genuinely cheap for spiky or low-traffic workloads), and scaling that's entirely automatic.
+
+**What you trade away:**
+
+- **Cold starts** — a function that hasn't run recently may need to be initialized (container startup, runtime init) before it can handle a request, adding latency that a warm, always-running server doesn't have. This matters a lot for latency-sensitive paths and much less for background jobs.
+- **Execution time limits** — most FaaS platforms cap how long a single invocation can run, ruling out long-running processes.
+- **Statelessness is mandatory** — a function instance can be torn down at any time between invocations, so it cannot rely on anything held in local memory persisting between calls.
+- **Cost at sustained high volume** — the per-invocation pricing that's cheap for spiky, low-traffic workloads can become more expensive than a fleet of always-on servers once traffic is consistently high.
+
+Serverless is a strong fit for event-driven, bursty, or infrequent workloads (image processing triggered by an upload, a webhook handler, a nightly batch job) and a weaker fit for latency-critical, sustained, high-throughput services where the cold-start tax and per-invocation cost stop paying off.
+
+## Stateless vs. stateful services
+
+This distinction cuts across every architectural style above and matters enough to call out on its own.
+
+A **stateless** service keeps no client-specific data in memory between requests — every request carries everything the service needs to handle it (or the service looks it up fresh from an external store), so any instance of the service can handle any request. A **stateful** service holds onto data — a session, an open connection, an in-memory cache specific to one client — that must be present for subsequent requests from the same client to work correctly.
+
+Why this distinction matters so much for scaling: a stateless service can be scaled horizontally trivially — spin up 10 more identical copies behind a load balancer, and any of them can serve any request, with no coordination needed (Module 6 covers exactly this). A stateful service is much harder to scale the same way — if a user's session data only lives in the memory of the one server they first connected to, the load balancer either has to route them back to that same server every time (\\"sticky sessions,\\" itself a scaling constraint) or the state needs to be moved somewhere shared.
+
+\`\`\`text
+Stateless:  Request → any server → response  (no memory of past requests)
+Stateful:   Request → the server holding this client's state → response
+\`\`\`
+
+The strong general preference in modern system design is to **push state out of application servers and into dedicated, purpose-built stores** — a database for durable data, a shared cache like Redis for session data, a queue for pending work — keeping the application servers themselves stateless and freely, cheaply scalable. State doesn't disappear; it just moves to a component specifically designed to manage it well, rather than living incidentally in a process that was never meant to be a database.
+
+> **Key idea:** Event-driven architecture decouples producers from consumers through an event bus, trading immediate consistency for flexibility and resilience; serverless removes server management entirely at the cost of cold starts, execution limits, and mandatory statelessness, making it a strong fit for bursty or event-triggered work and a weaker one for sustained high-throughput services; and stateless services — which hold no client-specific memory between requests — scale horizontally far more easily than stateful ones, which is why the default move in system design is to push state into dedicated stores and keep application servers stateless.`,
+    },
   ],
 }
