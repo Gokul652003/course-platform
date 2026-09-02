@@ -125,5 +125,60 @@ The value isn't just automation for its own sake — it's the feedback loop. A b
 
 > **Key idea:** Unit tests isolate and verify individual pieces fast and cheaply; integration tests verify the boundaries where those pieces meet, at real but higher cost; load testing confirms the system behaves correctly at expected traffic while stress testing finds where it actually breaks and how; and a CI/CD pipeline turns all of this from an optional manual step into an automatic, repeatable gate on every change.`,
     },
+    {
+      name: "Backup, Disaster Recovery, Cost Estimation & Performance Optimization",
+      minutes: 11,
+      intro: "Define RTO and RPO precisely, compare active-passive and active-active disaster recovery, and build a practical mental model for estimating cost and trading it off against performance.",
+      content: `## Backups: the last line of defense
+
+A **backup** is a copy of data kept separately from the live system so that data loss, corruption, or a bad deployment doesn't mean the data is gone forever. Two dimensions define most backup strategies:
+
+- **Full backup** — a complete copy of all data, at a point in time. Simple to restore from (one artifact, one restore operation) but expensive in storage and time to create repeatedly.
+- **Incremental backup** — only the data that changed since the last backup. Cheap and fast to create, but restoring means replaying a full backup plus every incremental since, which is slower and has more moving parts that could go wrong.
+
+Most real systems combine both: periodic full backups (say, weekly) with incremental backups in between (say, hourly), balancing storage cost against restore complexity and how much data could be lost between backups.
+
+## RPO and RTO: the two numbers that actually matter
+
+Disaster recovery planning comes down to answering two precise questions, each with an actual number attached, not a vague goal:
+
+- **RPO (Recovery Point Objective)** — how much data can we afford to lose, measured in time? If backups run hourly, the RPO is roughly one hour: in the worst case, the most recent hour of writes is gone when you restore from the last backup. A financial ledger might demand an RPO of seconds (near-continuous replication); a marketing analytics dashboard might tolerate an RPO of a day.
+- **RTO (Recovery Time Objective)** — how long can the system be down before it's back up, measured in time? An RTO of five minutes means the recovery process — detecting the failure, failing over, verifying — has to complete within five minutes, which shapes whether you need a hot standby ready to take over instantly or can afford to spin up fresh infrastructure from scratch.
+
+These two numbers, agreed on *before* an incident, drive nearly every architectural decision about redundancy: a tight RPO forces synchronous or near-synchronous replication (more expensive, more latency overhead); a tight RTO forces a warm or hot standby ready to take traffic immediately (more idle infrastructure cost, sitting there for a disaster that may never come).
+
+## Active-passive vs. active-active disaster recovery
+
+| | Active-passive | Active-active |
+|---|---|---|
+| Setup | One primary region serves all traffic; a standby region sits idle, replicating data | Multiple regions serve traffic simultaneously, all live |
+| Cost | Cheaper — standby capacity is otherwise unused | More expensive — full capacity running in every region, all the time |
+| Failover | Requires detecting failure and redirecting traffic to the standby (some downtime, bounded by RTO) | No failover step needed — if one region dies, the others are already serving traffic |
+| Complexity | Lower — one region is the source of truth at any time | Higher — needs conflict resolution when the same data is written in two places near-simultaneously |
+
+Active-passive is the right default for most systems: it delivers real disaster recovery at a fraction of the cost of active-active, and the added downtime during failover (seconds to low minutes, done well) is acceptable for the overwhelming majority of products. Active-active earns its much higher cost and complexity specifically for systems where even a brief failover window is unacceptable — global-scale infrastructure, payment rails, anything where downtime has a direct, large, per-second cost.
+
+## Estimating cost: the four buckets that dominate
+
+A back-of-envelope cost estimate for a system design, whether for an interview or a real budget conversation, almost always comes down to four buckets:
+
+- **Compute** — servers/containers/functions running your application logic, typically priced per hour or per invocation.
+- **Storage** — databases, object storage, backups; priced per GB stored and often separately per GB transferred out.
+- **Bandwidth** — data transfer, especially egress (data leaving the cloud provider's network), which is frequently the most underestimated line item in a naive cost model.
+- **Third-party services** — managed databases, CDNs, email/SMS providers, payment processors, observability tooling — each with its own pricing model layered on top of raw infrastructure.
+
+The estimation exercise itself matters more than precision: sketching "10M requests/day, each ~2KB response, roughly X GB egress, at $Y per GB" produces a number that's directionally useful for spotting where cost will actually concentrate — usually bandwidth and managed-service line items surprise people more than raw compute does.
+
+## Cost vs. performance: the trade-off you're always making
+
+Every reliability and performance decision in this course — more redundancy, more caching, more replicas, tighter SLAs — costs money, and the honest framing is not "how do we maximize performance" but "where is the point past which more spend stops buying proportionate value."
+
+- **Over-provisioning** — running far more capacity than needed "just in case." Buys safety margin and headroom for traffic spikes, but wastes money on idle capacity every single day it isn't needed, which is most days.
+- **Under-provisioning** — running close to the edge of actual need. Saves money continuously, but leaves little margin for a spike, a slow memory leak, or a dependency degrading, and a single unplanned event can turn into an outage.
+
+The practical resolution most systems land on is **autoscaling** (capacity that grows and shrinks with real demand, rather than a fixed size chosen up front) combined with deliberately choosing *where* to spend for headroom — critical, customer-facing paths get generous margin; internal batch jobs that can simply run a little slower under load don't need the same buffer. "Good enough, reliably, at a cost that's proportionate to what's actually at stake" beats a theoretically optimal design that's either bankrupting the project or one bad day away from an outage.
+
+> **Key idea:** RPO bounds how much data you can afford to lose and RTO bounds how long you can afford to be down — both agreed on before an incident, not during one — and they drive the choice between cheaper active-passive and more expensive active-active disaster recovery; cost estimation comes down to compute, storage, bandwidth, and third-party services, with bandwidth routinely underestimated; and the goal is never maximum performance or minimum cost in isolation, but a deliberate, proportionate balance between the two.`,
+    },
   ],
 }
