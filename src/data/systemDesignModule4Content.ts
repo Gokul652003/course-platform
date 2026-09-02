@@ -118,5 +118,68 @@ Shard A (leader + 2 followers)   Shard B (leader + 2 followers)   Shard C (leade
 
 > **Key idea:** Replication keeps multiple copies of the *same* data to survive node failure and scale reads (with a synchronous/asynchronous trade-off between durability and latency), while sharding splits the data itself across machines by a shard key to scale writes and total data volume — hash-based sharding spreads load more evenly than range-based sharding at the cost of efficient range queries, and large systems typically combine both, replicating each individual shard.`,
     },
+    {
+      name: "Storage Systems, Normalization/Denormalization & Redis",
+      minutes: 11,
+      intro: "Tour the three broad categories of storage, weigh normalized schemas against denormalized ones, and get a working mental model of Redis and basic SQL query tuning.",
+      content: `## Block, object, and file storage
+
+Beyond "which database," systems also need to decide how raw bytes are physically stored, and there are three broad categories:
+
+- **Block storage** — raw, fixed-size blocks of data (like a virtual hard disk), attached to a single machine at a time, with no built-in concept of files or folders — that's layered on top by the operating system's filesystem. Low latency, supports random reads and writes efficiently, which is exactly what a database engine needs to do. This is what backs a running database instance (Amazon EBS, for example) — the database process needs a fast, low-level disk to write its own data files to.
+- **Object storage** — data stored as whole, immutable objects (a file plus metadata), addressed by a key, accessed over HTTP rather than mounted like a disk (Amazon S3, Google Cloud Storage). No in-place partial edits — updating an object means replacing it entirely — but it scales to effectively unlimited capacity, is durable by design (typically replicated across multiple facilities automatically), and is the natural home for anything large and mostly-write-once-read-many: images, videos, backups, log archives.
+- **File storage** — a traditional hierarchical filesystem (folders and files) shared and mounted by multiple machines at once (NFS, Amazon EFS). Useful when several servers genuinely need to read and write the same file tree concurrently, which block storage (single-attach) and object storage (no in-place edits, no real directory semantics) don't cleanly support.
+
+A concrete rule of thumb: a database's own data files live on **block storage**; the images and videos a user uploads live in **object storage**; a shared configuration directory that multiple application servers need to read and occasionally write lives on **file storage**. Reaching for the wrong one — like storing millions of user-uploaded images as rows in a relational database instead of object storage — is a classic early-stage mistake that becomes expensive to unwind later.
+
+## Normalization vs denormalization
+
+**Normalization** is the process of structuring a relational schema to eliminate redundant data — each fact is stored exactly once, and everything that needs it references it. A simplified, informal walk through the first few normal forms:
+
+- **1NF** — every column holds a single, atomic value (no comma-separated lists crammed into one field).
+- **2NF** — every non-key column depends on the *whole* primary key, not just part of it (relevant for composite keys).
+- **3NF** — every non-key column depends only on the key, not on another non-key column (a customer's city shouldn't live in the \`orders\` table if it's really a fact about the customer, stored in \`customers\`).
+
+A normalized schema for orders might look like:
+
+\`\`\`sql
+customers(id, name, city)
+orders(id, customer_id, total)
+\`\`\`
+
+instead of a denormalized version that repeats the customer's name and city on every single order row. Normalization's payoff is data integrity: a customer's city is stored once, so updating it can never leave some orders with the old city and others with the new one — there's only one place it can live.
+
+**Denormalization** deliberately reintroduces redundancy — copying data into multiple places — to make reads faster, at the cost of making writes do more work (and introducing the possibility of the copies drifting out of sync if updates aren't handled carefully). A denormalized \`orders\` table might store the customer's name directly on each order row, so rendering an order list never needs a join back to \`customers\` at all.
+
+The trade-off in one line: **normalize for write integrity and storage efficiency; denormalize for read speed**, and most systems land somewhere in between — a normalized source-of-truth schema with specific, deliberately denormalized read paths (or a separate cache, which is really denormalization one layer up) for the queries that actually need to be fast.
+
+## Redis: an in-memory data store
+
+Redis is an in-memory key-value store that shows up constantly in system design because it's genuinely useful for several unrelated jobs at once, all stemming from the same property: reading and writing RAM is orders of magnitude faster than reading and writing disk.
+
+Redis supports several data structures natively, not just plain string values, which is a big part of why it's so versatile:
+
+| Data structure | Typical use |
+|---|---|
+| String | Simple cache values, counters (\`INCR\`) |
+| Hash | An object's fields (a user's profile) without a full serialize/deserialize round trip |
+| List | A queue or a recent-activity feed |
+| Set | Unique tags, membership checks |
+| Sorted set | Leaderboards (score-ordered), rate-limiting windows |
+
+Common uses that follow directly from this: a **cache** in front of a slower database (the topic of Module 7); a **session store** for a stateless application tier, so any instance can look up a user's session by ID instead of keeping it in local memory; a **rate limiter**, using a sorted set or a simple counter with expiry to track how many requests a client has made in a window (Module 8 covers the algorithms); and a **leaderboard**, using a sorted set's native score-ordering to answer "top 10" or "this user's rank" in a single fast operation instead of a \`SELECT ... ORDER BY\` over a large table.
+
+Redis is not a replacement for a primary database in most designs — being in-memory, data is vulnerable to loss on a crash unless persistence (snapshotting or an append-only log) is explicitly configured, and total capacity is bounded by available RAM rather than disk. It's best understood as a purpose-built accelerator sitting alongside a durable primary store, not instead of one.
+
+## A note on SQL query optimization
+
+Even a well-normalized relational schema can perform badly if queries aren't written with the database's execution model in mind. Three habits catch most real-world slowness:
+
+- **Index the columns you filter and join on.** Without an index, the database scans every row to find matches; with one, it can jump straight to the relevant rows. The cost is that every index also slows down writes slightly (each insert/update must maintain the index too), so indexing is a deliberate trade-off, not something to apply to every column indiscriminately.
+- **Avoid the N+1 query pattern.** Fetching a list of orders, then looping over them and issuing a separate query per order to fetch its customer, turns one page load into N+1 round trips to the database. A single query with a join (or a batched \`WHERE id IN (...)\`) replaces N+1 round trips with one.
+- **Read the \`EXPLAIN\` plan before guessing.** Every relational database can show the actual execution plan for a query — whether it's using an index or scanning the whole table, in what order it's joining tables — and that plan is far more reliable evidence than intuition about why a specific query is slow.
+
+> **Key idea:** Choose block storage for a database's own low-latency disk, object storage for large immutable blobs, and file storage for content genuinely shared across machines; normalize a schema for write integrity and denormalize deliberately where read speed matters more; and Redis's in-memory data structures make it a natural fit for caching, session storage, rate limiting, and leaderboards — alongside disciplined indexing and \`EXPLAIN\`-driven query tuning, not as a replacement for either.`,
+    },
   ],
 }
