@@ -77,5 +77,61 @@ A common real-world pattern is to run with a long TTL normally, then temporarily
 
 > **Key idea:** TCP trades latency for reliability and UDP trades reliability for speed, which is why real-time features often prefer UDP-based transports (QUIC/HTTP-3) while correctness-critical requests stay on TCP; DNS resolves names to IPs through a cached chain of resolvers, and TTL is the deliberate dial between how fast a DNS change propagates and how much load repeated lookups place on nameservers.`,
     },
+    {
+      name: "Forward vs Reverse Proxy & Web/Application Servers",
+      minutes: 10,
+      intro: "Tell forward and reverse proxies apart by whose identity they hide, and see why a request typically passes through a web server before it ever reaches application code.",
+      content: `## The one question that tells forward and reverse proxies apart
+
+Both forward and reverse proxies sit between a client and a server, intercepting and forwarding traffic — the confusion between them almost always comes from not asking the one question that instantly disambiguates them: **whose identity is the proxy hiding?**
+
+\`\`\`text
+FORWARD PROXY (hides the client)
+  Client A ---\\
+  Client B ---- [ Forward Proxy ] ---> Internet ---> Server
+  Client C ---/
+  The server only ever sees the proxy's IP. It has no idea which client actually asked.
+
+REVERSE PROXY (hides the server)
+  Client ---> Internet ---> [ Reverse Proxy ] ----> Server 1
+                                    |---------------> Server 2
+                                    |---------------> Server 3
+  The client only ever talks to the proxy. It has no idea which backend server actually answered.
+\`\`\`
+
+## Forward proxy: acting on behalf of the client
+
+A **forward proxy** sits in front of a group of clients (often an entire company network) and forwards their outbound requests to the internet. The server on the other end sees the proxy, not the individual client. This is used for:
+
+- **Filtering and access control** — blocking employees from reaching certain sites, or restricting outbound traffic to an allowlist.
+- **Anonymity** — hiding a client's real IP address from the destination server.
+- **Outbound caching** — if many clients behind the proxy request the same external resource, the proxy can cache and serve it once instead of refetching per client.
+- **Bypassing geographic or network restrictions** — routing a request through a proxy in a different region.
+
+## Reverse proxy: acting on behalf of the server
+
+A **reverse proxy** sits in front of a group of backend servers and is the single point clients connect to; it then forwards each request to one of the servers behind it. The client has no visibility into how many backend servers exist or which one actually served the request. This is by far the more common pattern in backend system design, and it's usually doing several jobs at once:
+
+- **Load balancing** — distributing incoming requests across multiple backend instances (Module 6 covers the algorithms).
+- **TLS termination** — handling HTTPS encryption/decryption once at the proxy, so backend servers only deal with plain HTTP internally, simplifying certificate management to one place.
+- **Inbound caching** — serving frequently requested responses directly from the proxy without hitting a backend server at all.
+- **Security** — the proxy is the only thing directly exposed to the internet; backend servers can sit on a private network, unreachable except through it.
+
+Nginx and HAProxy are the two tools most commonly reached for as reverse proxies in real infrastructure, and it's normal for a single Nginx instance to be doing TLS termination, load balancing, *and* static file serving simultaneously.
+
+## Web server vs application server: who actually runs your code
+
+These two terms get used loosely, but they describe genuinely different responsibilities:
+
+| | Web server | Application server |
+|---|---|---|
+| Job | Serves static content (HTML, CSS, JS, images) directly from disk over HTTP | Executes your application's business logic to produce dynamic responses |
+| Examples | Nginx, Apache | A Node.js/Express process, a Java servlet container, a Django/Gunicorn process |
+| Speed | Very fast — no computation, just reading a file and streaming bytes | Slower per-request — running code, hitting a database, computing a response |
+
+A typical production setup layers both: a web server (often the same reverse proxy doing TLS termination and load balancing) serves static assets and forwards any request that needs actual computation — an API call, a database-backed page — to an application server sitting behind it. This split matters because it lets the cheap, static-file work be handled by something optimized for exactly that, without burning application-server resources (memory, database connections, request-handling threads) on requests that never needed real computation in the first place.
+
+> **Key idea:** A forward proxy hides the client from the server it's talking to; a reverse proxy hides the server from the client — the same mechanism, pointed in opposite directions, and reverse proxies are the workhorse behind load balancing, TLS termination, and inbound caching in most real backend architectures; a web server hands out static files while an application server runs your actual business logic, and production systems typically layer both.`,
+    },
   ],
 }
