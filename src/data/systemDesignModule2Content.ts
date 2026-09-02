@@ -120,5 +120,65 @@ The strong general preference in modern system design is to **push state out of 
 
 > **Key idea:** Event-driven architecture decouples producers from consumers through an event bus, trading immediate consistency for flexibility and resilience; serverless removes server management entirely at the cost of cold starts, execution limits, and mandatory statelessness, making it a strong fit for bursty or event-triggered work and a weaker one for sustained high-throughput services; and stateless services — which hold no client-specific memory between requests — scale horizontally far more easily than stateful ones, which is why the default move in system design is to push state into dedicated stores and keep application servers stateless.`,
     },
+    {
+      name: "Pub/Sub Architecture & Choosing an Architectural Style",
+      minutes: 10,
+      intro: "See how the publish/subscribe pattern decouples services through topics, walk through a worked fan-out example, and build a framework for choosing an architectural style for a real system.",
+      content: `## The publish/subscribe pattern
+
+**Publish/subscribe (pub/sub)** is the specific mechanism that usually powers event-driven architecture (previous lesson) under the hood. Its three pieces:
+
+- **Publishers** produce messages without addressing them to any specific recipient — they publish to a named **topic**.
+- **Topics** are named channels that categorize messages by subject ("order-events," "user-signups").
+- **Subscribers** register interest in one or more topics, and receive every message published to those topics, without the publisher ever needing to know who's listening.
+
+\`\`\`text
+Publisher ──► [ Topic: "order-events" ] ──► Subscriber A
+                                        ──► Subscriber B
+                                        ──► Subscriber C
+\`\`\`
+
+This is a meaningfully different shape from a message queue in the strict sense (Module 8 draws this out in more depth): a classic queue typically delivers each message to exactly *one* consumer (useful for distributing work across a pool of workers), while pub/sub is built for **fan-out** — the same message reaching every interested subscriber. Real messaging systems (Kafka, SNS, Google Pub/Sub) often support both patterns, but it's worth keeping the conceptual distinction clear: queue = one message, one worker; pub/sub topic = one message, every subscriber.
+
+## Worked example: an order-placed event
+
+Consider an e-commerce checkout. Without pub/sub, the order service would need to directly call inventory, notifications, and analytics itself — and know about every future consumer that might ever need this event:
+
+\`\`\`text
+Without pub/sub:
+Order Service ──calls──► Inventory Service
+              ──calls──► Notification Service
+              ──calls──► Analytics Service
+(Order Service must know about, and stay available to, every consumer)
+\`\`\`
+
+With pub/sub, the order service publishes a single \`OrderPlaced\` event and moves on:
+
+\`\`\`text
+With pub/sub:
+Order Service ──publishes──► [ Topic: "order-placed" ]
+                                       │
+                       ┌───────────────┼───────────────┐
+                       ▼               ▼               ▼
+              Inventory Service  Notification Svc  Analytics Svc
+              (reserve stock)    (send confirmation) (log purchase)
+\`\`\`
+
+The concrete benefits this buys: **adding a new consumer** (say, a fraud-detection service that also wants to see every order) requires zero changes to the order service — it just subscribes to the existing topic. **Removing or temporarily disabling a consumer** similarly requires no change to the publisher. And if one subscriber is slow or briefly down, it doesn't block the order service from completing the checkout or block the *other* subscribers from receiving the event — each consumer processes independently, at its own pace, which is exactly the kind of resilience event-driven systems are reached for in the first place.
+
+## Choosing an architectural style
+
+Modules 1 and 2 together have now covered monolithic vs. microservices, event-driven vs. serverless, stateless vs. stateful, and pub/sub — a real toolbox, not a single answer. Picking the right style for a specific system comes down to a short set of honest questions:
+
+- **How big is the team, and how independently do they need to deploy?** A five-person team rarely benefits from ten microservices; a five-hundred-person org rarely thrives inside one monolith.
+- **What's the actual current scale, not the imagined future scale?** Designing for traffic you don't have yet trades real, immediate simplicity for hypothetical future flexibility — often a bad trade, and one worth naming explicitly rather than defaulting into.
+- **How tightly does this system need consistency?** A payments flow that must never show a stale balance leans toward synchronous calls and strong consistency; a "likes" counter or an activity feed tolerates eventual consistency easily, and is a natural fit for async, event-driven updates.
+- **Is the workload steady or bursty?** Sustained, predictable, latency-sensitive traffic favors always-on servers; spiky, infrequent, or background work is where serverless functions clear their cold-start tax and pay off.
+- **Does this component's data and behavior form a real, separate boundary**, or is it just organizationally convenient to draw a line here? A genuine bounded context (payments, search, recommendations) is a much better microservice candidate than an arbitrary split.
+
+None of these questions have a universally correct answer — they're the questions a strong system design discussion (interview or otherwise) makes explicit, rather than silently assuming one architecture is always right. The strongest answers in this space justify the choice against the system's actual constraints, and are equally comfortable saying "a monolith is the right call here" as they are proposing microservices — architectural sophistication is knowing which tool fits, not defaulting to the most complex one available.
+
+> **Key idea:** Pub/sub decouples publishers from subscribers through named topics, letting new consumers be added or removed without ever touching the publisher, and enabling one event to fan out to many independent consumers at once; choosing an architectural style overall — monolith vs. microservices, synchronous vs. event-driven, always-on vs. serverless — should be driven by concrete answers about team size, actual current scale, consistency needs, and workload shape, not by defaulting to whichever style sounds most sophisticated.`,
+    },
   ],
 }
