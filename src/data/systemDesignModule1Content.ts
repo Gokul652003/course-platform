@@ -152,5 +152,61 @@ The pattern to internalize: **users → actions per user → requests per second
 
 > **Key idea:** Functional requirements describe what a system does; non-functional requirements describe how well it must do it (scale, availability, latency, consistency, durability) and are rarely all maximizable at once, forcing explicit trade-offs; back-of-envelope estimation turns a vague user count into concrete QPS, storage, and bandwidth numbers that directly justify (or rule out) architectural decisions before any component gets designed.`,
     },
+    {
+      name: "High-Level Design Diagrams & the System Design Process",
+      minutes: 10,
+      intro: "Learn the standard building blocks of an HLD diagram and a repeatable, interview-ready process for approaching any system design problem from scratch.",
+      content: `## The recurring cast of an HLD diagram
+
+Almost every high-level design, regardless of the specific product, is assembled from the same small set of recurring components. Learning to recognize and place these correctly is most of what "drawing an HLD" actually is:
+
+| Component | Role |
+|---|---|
+| Client | Browser, mobile app, or other caller initiating requests |
+| Load Balancer | Distributes incoming traffic across multiple servers (Module 6) |
+| API / Application Server | Runs business logic, stateless where possible |
+| Cache | Fast, in-memory layer that absorbs repeated reads (Module 7) |
+| Database | Durable, authoritative storage for the system's data (Module 4) |
+| Message Queue | Decouples producers from consumers for async work (Module 8) |
+| CDN | Serves static/cacheable content from locations near the user (Module 7) |
+| Blob / Object Storage | Holds large unstructured files — images, videos, backups |
+
+A minimal but realistic HLD for a typical web application already tells a coherent story just from how these are wired together:
+
+\`\`\`text
+[Client] → [CDN] → [Load Balancer] → [API Servers] → [Cache] → [Database]
+                                            │
+                                            └──► [Message Queue] → [Worker Servers]
+\`\`\`
+
+Reading this left to right: static assets get served from the CDN without ever reaching your servers; dynamic requests hit a load balancer that spreads them across a fleet of stateless API servers; those servers check a cache before falling through to the database; and anything that doesn't need to happen synchronously (sending an email, resizing an image, updating analytics) gets pushed onto a queue for background workers to pick up later. Every module for the rest of this course is really a deep dive into one box or one arrow in a diagram that looks like this.
+
+## Conventions worth following
+
+A few habits make HLD diagrams communicate clearly instead of turning into a tangle:
+
+- **Arrows show the direction requests flow**, and it's worth labeling them with what's being sent when it's not obvious ("write event", "cache miss", "async job").
+- **Group by responsibility, not by literal server.** A "cache layer" box represents the *role*, whether it's one Redis instance or a cluster — the diagram is about architecture, not deployment topology, unless deployment topology is specifically what's being discussed.
+- **Call out where state lives.** It should be obvious at a glance which boxes are stateless (can be freely added or removed) and which are stateful (databases, caches — adding or removing instances requires care, covered throughout Modules 4-6).
+- **Don't over-detail early.** A first-pass HLD for an interview or a design doc should be sketchable in under two minutes; detail gets added in a second pass once the reviewer agrees the overall shape is right.
+
+## A repeatable process for any system design problem
+
+The specific system changes every time — a chat app, a news feed, a ride-sharing dispatcher — but the *process* for approaching one barely does. This five-step loop is worth memorizing, because it's the actual skeleton every remaining module in this course hangs off of:
+
+**1. Clarify requirements.** Separate functional from non-functional requirements (previous lesson). Ask about scale, read/write ratio, consistency needs, and anything ambiguous in the prompt — "design a chat app" could mean 1:1 messaging, group chats, or both, with wildly different implications.
+
+**2. Estimate scale.** Back-of-envelope QPS, storage, and bandwidth (previous lesson). This determines whether the system needs to be distributed at all, or whether a single well-chosen database and a cache already solve the problem.
+
+**3. Sketch the high-level components.** Draw the boxes-and-arrows diagram above, tailored to this system — what's the client, what's behind the load balancer, where's the data, what (if anything) is async.
+
+**4. Deep-dive into 2-3 critical components.** Not every box deserves equal attention — pick the ones that are actually hard or interesting for *this* system (for a URL shortener, that's usually "how do we generate unique short codes at scale" and "how do we make redirects fast"; for a chat app, it's usually "how do messages get delivered in real time" and "how is chat history stored and paginated").
+
+**5. Discuss trade-offs and bottlenecks.** No design is free of weaknesses — the strongest answers proactively name the bottleneck ("the database is a single point of failure here"), and propose a mitigation (replication, sharding, caching) rather than waiting to be asked.
+
+Following this loop in order matters as much as any individual step: jumping straight to step 3 without steps 1-2 produces a design solving the wrong problem at the wrong scale, and skipping step 5 leaves a design that looks complete but hasn't actually been stress-tested by its own author. Every remaining module in this course adds vocabulary and tools to steps 3 and 4 specifically — this five-step shape doesn't change.
+
+> **Key idea:** HLD diagrams are built from a small recurring set of components (clients, load balancers, servers, caches, databases, queues, CDNs) wired together to tell a clear story of how a request flows through the system, and any system design problem — in an interview or in practice — is best approached with the same repeatable loop: clarify requirements, estimate scale, sketch components, deep-dive the hard parts, then discuss trade-offs and bottlenecks.`,
+    },
   ],
 }
