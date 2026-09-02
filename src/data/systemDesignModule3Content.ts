@@ -57,5 +57,37 @@ In practice, real systems use both, at different points. It's extremely common t
 
 > **Key idea:** Vertical scaling (a bigger machine) is simple but has diminishing returns, a hard hardware ceiling, and remains a single point of failure; horizontal scaling (more machines) has no practical ceiling and survives individual failures, but demands statelessness and adds real operational complexity — most real systems combine both, scaling the database up and the application tier out.`,
     },
+    {
+      name: "Designing Highly Scalable Systems & Common Bottlenecks",
+      minutes: 11,
+      intro: "Learn the handful of design principles that let a system absorb growing load, and walk through the bottlenecks that most often break systems that skip them.",
+      content: `## The principles behind scalable design
+
+Scalable systems don't happen by accident — they're built on a small set of recurring principles that show up in almost every system that handles serious load:
+
+- **Statelessness in the application tier.** As covered in the previous lesson, a stateless service can be scaled horizontally by simply adding more instances, because any instance can serve any request. Anything that must be remembered between requests belongs in a shared store (a database, a cache, an external session store) — never in an individual instance's memory.
+- **Caching aggressively.** The cheapest request is the one that never reaches the database. Caching (its own deep topic in Module 7) absorbs repeated reads at every layer — in the browser, at a CDN edge, in an in-memory cache in front of the database — so the slowest, most contended part of the system sees only a fraction of the actual traffic.
+- **Asynchronous processing.** Not every piece of work needs to happen inside the request/response cycle. Sending a confirmation email, resizing an uploaded image, or updating a recommendation model can be handed off to a background worker via a message queue (Module 8), so the user-facing request returns fast and the expensive work happens out of band, at whatever pace the backend can sustain.
+- **Scaling the data layer deliberately.** Application servers are usually the easy part to scale; the database is usually the hard part, because it holds state that has to stay consistent. Read replicas, sharding, and denormalization (Module 4) are the tools for this, and they're applied only once caching and async processing have already cut down how much load actually reaches the database.
+- **Load balancing across all of the above.** None of the horizontal scaling above matters if traffic isn't actually spread evenly across the instances that exist — an unbalanced distribution just means some instances are overloaded while others sit idle. Module 6 covers this in depth.
+
+These principles work together, not in isolation — a system that's stateless but has no caching still hammers its database on every request; a system with great caching but a synchronous, chatty internal architecture still falls over under load for other reasons. Scalability is a property of the whole design, not any single component.
+
+## The bottlenecks that actually take systems down
+
+Knowing the principles above matters less than recognizing the failure patterns before they happen. A handful of bottlenecks account for the overwhelming majority of "the system fell over" incidents:
+
+**A single database instance taking all reads and writes.** Every request, no matter which application server handles it, ends up hitting the same database. Once that database's connection pool, CPU, or disk I/O saturates, the whole system slows down together — even parts of the app that don't logically depend on each other. *Mitigation:* read replicas to spread out reads, caching to avoid hitting the database at all for hot data, and eventually sharding to spread writes across multiple database instances.
+
+**Synchronous chains of calls.** Service A calls B, which calls C, which calls D, all within a single request, all waiting on each other. The user-facing latency is now the *sum* of every hop, and if any one service in the chain is slow or down, the whole chain is slow or down — a single misbehaving downstream dependency can take out everything upstream of it. *Mitigation:* move non-critical work off the synchronous path with queues, add timeouts and circuit breakers so a stuck dependency doesn't stall its callers indefinitely, and parallelize independent calls instead of chaining them.
+
+**Chatty APIs.** A client needs data from several resources, and instead of one well-shaped endpoint it makes a dozen small round trips to assemble what it needs — each one paying full network latency. This is especially punishing on mobile networks or between services in different regions. *Mitigation:* design coarser-grained endpoints that return what a screen actually needs in one call, or introduce an aggregation layer (an API gateway or a BFF — backend-for-frontend) that does the fan-out server-side, where latency between services is far lower than latency to the client.
+
+**Hot partitions and hot keys.** Data is spread across multiple shards or cache nodes to distribute load, but one key — a viral post, a celebrity's profile, a popular product on sale day — gets disproportionately more traffic than every other key. The node holding that one key gets overwhelmed while its siblings sit comfortably under load, even though the *system* looks fine in aggregate. *Mitigation:* key design that spreads hot data further (adding a random suffix and fanning reads back in, for instance), or a dedicated cache layer in front of the hot key specifically.
+
+**Unbounded queues.** A queue is meant to absorb bursts, but if producers can add work faster than consumers can drain it indefinitely, the queue just grows without bound — memory pressure builds, and by the time anyone notices, there's an enormous backlog of stale work to process, or the queue's storage itself falls over. *Mitigation:* backpressure (slow down or reject producers once the queue is deep), autoscaling the number of consumers, and monitoring queue depth as a first-class metric, not an afterthought.
+
+> **Key idea:** Scalable systems are built from statelessness, caching, async processing, deliberate data-layer scaling, and load balancing working together — and most real-world outages trace back to one of a short list of recognizable bottlenecks: an overloaded single database, synchronous call chains, chatty APIs, hot keys, or queues with no backpressure.`,
+    },
   ],
 }
