@@ -154,5 +154,62 @@ In practice, most request-shaped IPC in a modern Electron app uses \`invoke\`/\`
 
 > **Key idea:** \`ipcRenderer.invoke(channel, ...args)\` paired with \`ipcMain.handle(channel, listener)\` turns IPC into a clean async call — the handler's return value (or thrown error) becomes the invoking promise's resolution (or rejection) — and is the right default for request/response IPC, leaving \`send\`/\`on\` for fire-and-forget or main-initiated pushes.`,
     },
+    {
+      name: "IPC Patterns & Best Practices",
+      minutes: 8,
+      intro: "Adopt naming and structuring conventions that keep a growing IPC surface maintainable, and know what a channel's payload can and can't safely carry.",
+      content: `## Namespacing channel names
+
+As an app grows, so does its list of IPC channels — and flat, unstructured names (\`"save"\`, \`"get"\`, \`"update"\`) collide easily and give no hint what they're for at a glance. A colon- or dot-namespaced convention, grouped by feature area, scales much better:
+
+\`\`\`js
+// instead of loose, ambiguous names:
+ipcMain.handle("save", ...)
+ipcMain.handle("get", ...)
+
+// prefer a namespaced convention:
+ipcMain.handle("file:save", ...)
+ipcMain.handle("file:read", ...)
+ipcMain.handle("window:minimize", ...)
+ipcMain.handle("settings:get", ...)
+ipcMain.handle("settings:update", ...)
+\`\`\`
+
+Some teams go further and centralize every channel name as a shared constant (imported by both the main process and preload script) specifically to eliminate the class of bug from the previous lesson — a channel name typo that fails silently instead of throwing:
+
+\`\`\`js
+// shared/ipc-channels.js — imported by both main.js and preload.js
+module.exports = {
+  FILE_SAVE: "file:save",
+  FILE_READ: "file:read",
+  SETTINGS_GET: "settings:get",
+}
+\`\`\`
+
+With both sides importing from one shared module, a typo becomes a \`ReferenceError\` at load time rather than a silently-never-firing handler — caught immediately instead of discovered by a confused bug report.
+
+## Keep payloads serializable
+
+Everything passed across IPC — whether via \`send\` or \`invoke\` — is serialized using the structured clone algorithm, the same mechanism \`postMessage\` and \`localStorage\` use. This means a payload can be plain objects, arrays, strings, numbers, booleans, \`Date\`s, \`Map\`s, and \`Set\`s — but **not** functions, class instances with methods, \`Symbol\`s, or anything holding a live reference to a DOM node or another process's memory:
+
+\`\`\`js
+// WRONG — a function can't cross the IPC boundary
+ipcRenderer.invoke("process-data", {
+  data: [1, 2, 3],
+  onProgress: () => console.log("progress"), // silently dropped or throws
+})
+
+// CORRECT — plain, serializable data only
+ipcRenderer.invoke("process-data", { data: [1, 2, 3] })
+\`\`\`
+
+For a case that genuinely needs progress updates during a long-running main-process task, the right pattern is a separate \`send\`-based push from the main process back to the renderer (\`event.sender.send("process-data:progress", pct)\`) rather than trying to pass a callback across the boundary directly.
+
+## Don't let IPC become a dumping ground
+
+A tempting anti-pattern as an app grows is a single catch-all channel (\`"do-thing"\`) carrying an action name and a generic payload, dispatched internally by a big \`switch\` statement in the main process — essentially reimplementing a router by hand. It works, but it throws away everything a well-named, per-purpose channel gives you for free: readable call sites, straightforward search-ability ("where is \`file:save\` handled?"), and no risk of one action's error handling accidentally leaking into another's. Prefer one channel per distinct operation, namespaced by feature, over a single generic dispatcher channel — the small amount of extra boilerplate pays for itself the first time you're debugging or extending the IPC surface months later.
+
+> **Key idea:** Namespace IPC channel names by feature (\`"file:save"\`, \`"settings:get"\`) and consider centralizing them as shared constants to catch typos at load time rather than silently; IPC payloads must be structured-clone-serializable (no functions, no class instances), and a single catch-all dispatcher channel trades away readability and safety that one channel per operation gives for free.`,
+    },
   ],
 }
