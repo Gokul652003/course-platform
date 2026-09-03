@@ -90,5 +90,45 @@ mainWindow.webContents.setWindowOpenHandler(({ url }) => {
 
 > **Key idea:** A strict Content Security Policy (\`script-src 'self'\`, no inline scripts) blunts what an XSS bug could actually execute even if injection occurs; \`webSecurity\` should never be disabled to work around a CORS error; and \`will-navigate\`/\`setWindowOpenHandler\` let the main process reject navigation to untrusted origins and route external links to the system browser instead of opening them inside a privileged Electron window.`,
     },
+    {
+      name: "Auditing & Hardening a Real App",
+      minutes: 9,
+      intro: "Work through a practical security checklist for a real Electron app, avoid the deprecated remote module, and handle permission requests deliberately instead of accepting every default.",
+      content: `## A practical checklist
+
+Pulling together everything from this module and the ones before it, a genuine security pass over an existing Electron app should check each of the following, in roughly this order of impact:
+
+1. **\`nodeIntegration: false\`, \`contextIsolation: true\`, \`sandbox: true\`** on every single \`BrowserWindow\` — including secondary windows and any \`<webview>\` tags, which are easy to forget once the main window is locked down correctly.
+2. **The preload script's exposed API is narrow** — no raw \`ipcRenderer.invoke\` pass-through (Module 5), each exposed method does one specific, well-understood thing.
+3. **IPC handlers validate their inputs** — file paths checked against an expected directory (Module 7), no handler blindly trusting a renderer-supplied argument.
+4. **A strict CSP is set**, and \`webSecurity\` is never disabled.
+5. **\`will-navigate\` and \`setWindowOpenHandler\` are both implemented** for any window that could conceivably encounter an external link.
+6. **Dependencies are kept current** — Electron itself, and any npm packages bundled into the renderer; Electron ships frequent security patches tracking upstream Chromium and Node.js CVEs, and running a version several major releases behind means missing all of them.
+
+## The deprecated \`remote\` module
+
+Older Electron code (and a fair number of outdated tutorials) uses a module called \`remote\`, which let a renderer synchronously call main-process APIs directly (\`remote.dialog.showOpenDialog(...)\` from inside a renderer, no explicit IPC channel needed) by transparently proxying calls across the process boundary. It was removed from Electron core specifically because of the risk it created: it exposed a huge, largely unrestricted surface of main-process functionality directly to renderer code, working against everything context isolation is meant to enforce, and its synchronous cross-process calls also caused real performance problems. If \`remote\` appears in a codebase you're auditing (it survives today only as a separate, explicitly opt-in \`@electron/remote\` package), that's a strong signal the app predates current security norms and deserves a closer look — the fix is migrating that functionality to explicit \`contextBridge\`-exposed, IPC-backed methods, exactly the pattern this course has used throughout.
+
+## Handling permission requests deliberately
+
+Chromium-based renderers can request permissions a browser tab would also prompt for — camera, microphone, geolocation, notifications. Electron's default is permissive (auto-granting many of these), which is rarely what a production app actually wants. A permission handler lets the main process decide explicitly:
+
+\`\`\`js
+const { session } = require("electron")
+
+session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+  const allowedPermissions = ["notifications"]
+  callback(allowedPermissions.includes(permission))
+})
+\`\`\`
+
+Explicitly allow-listing exactly the permissions your app genuinely needs (as opposed to relying on Electron's default behavior, or blanket-approving everything) closes off another surface a compromised or buggy renderer could otherwise use — a page unexpectedly requesting camera access, for instance, should be denied rather than silently granted.
+
+## The mindset that ties it together
+
+Every item on this checklist is really one idea applied repeatedly: **the main process is the trust boundary, and every single thing that crosses it — a file path, a URL, a permission request — deserves the same scrutiny a server applies to a request from the public internet**, because functionally, that's what a renderer's request represents, no matter how much you trust the code you personally wrote for it.
+
+> **Key idea:** A real security audit checks that isolation defaults are on everywhere (including secondary windows and webviews), the preload API stays narrow, IPC inputs are validated, CSP/webSecurity/navigation handlers are all in place, dependencies are current, the deprecated \`remote\` module is absent, and permission requests are explicitly allow-listed rather than left to Electron's permissive default — all instances of treating the main process as a trust boundary and the renderer as untrusted input.`,
+    },
   ],
 }
