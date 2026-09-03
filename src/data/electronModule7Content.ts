@@ -75,5 +75,58 @@ Note that every example here calls \`dialog\` from the main process, exposed to 
 
 > **Key idea:** \`dialog.showOpenDialog\`, \`showSaveDialog\`, and \`showMessageBox\` show real, OS-native pickers and prompts from the main process (always check \`result.canceled\` before trusting the result), giving an app native-feeling file interactions that an HTML-built dialog could only approximate.`,
     },
+    {
+      name: "Reading & Writing Files Safely",
+      minutes: 9,
+      intro: "Understand why file I/O belongs in the main process behind IPC, not the renderer, and build a safe, validated read/write API for a note-taking app's data.",
+      content: `## File I/O is main-process work
+
+Node's \`fs\` module — \`readFile\`, \`writeFile\`, \`mkdir\`, and the rest — is unavailable in a renderer by default, for exactly the reasons covered in Module 2: a renderer is treated as untrusted, and unrestricted filesystem access from there would undermine that boundary entirely. In practice, this means every real file operation in an Electron app is main-process code, requested by the renderer via IPC:
+
+\`\`\`js
+// main.js
+const fs = require("fs/promises")
+const path = require("path")
+const { app, ipcMain } = require("electron")
+
+const notesDir = path.join(app.getPath("userData"), "notes")
+
+ipcMain.handle("notes:read", async (event, filename) => {
+  const filePath = path.join(notesDir, filename)
+  return fs.readFile(filePath, "utf-8")
+})
+
+ipcMain.handle("notes:write", async (event, filename, content) => {
+  await fs.mkdir(notesDir, { recursive: true })
+  const filePath = path.join(notesDir, filename)
+  await fs.writeFile(filePath, content, "utf-8")
+})
+\`\`\`
+
+## Validate paths — don't trust renderer-supplied filenames blindly
+
+Because the renderer is treated as untrusted (Module 2, Module 9), a filename argument coming across IPC deserves the same suspicion you'd give user input on a web server — a renderer that's been compromised, or simply a bug, could pass something like \`"../../../.ssh/id_rsa"\` and, without a check, \`path.join\` would happily resolve that outside \`notesDir\`:
+
+\`\`\`js
+ipcMain.handle("notes:read", async (event, filename) => {
+  const filePath = path.join(notesDir, filename)
+
+  // resolve both paths and confirm the result is still inside notesDir
+  if (!path.resolve(filePath).startsWith(path.resolve(notesDir))) {
+    throw new Error("Invalid file path")
+  }
+
+  return fs.readFile(filePath, "utf-8")
+})
+\`\`\`
+
+This mirrors the "safe directory" check from Module 4's error-propagation example — the underlying lesson is the same: an IPC handler is effectively a small API endpoint, and it should validate its inputs with the same care a server-side API would, rather than assuming the renderer will only ever send well-formed, well-intentioned arguments.
+
+## Prefer async \`fs/promises\` over sync calls in the main process
+
+Node offers both synchronous (\`fs.readFileSync\`) and asynchronous (\`fs.promises.readFile\` / \`fs/promises\`) file APIs. In the main process specifically, synchronous file calls **block the entire process** — including, notably, any IPC handling and window-management code — for however long the disk operation takes. On a large file or a slow disk, that can make the whole app briefly unresponsive. The async \`fs/promises\` API (as used throughout this lesson) avoids that entirely, and is the right default for essentially all file I/O in a main process, reserving sync calls for the rare case of genuinely tiny, startup-time-only reads where blocking briefly is a deliberate, acceptable tradeoff.
+
+> **Key idea:** File I/O happens in the main process — never directly in a renderer — exposed through IPC handlers that should validate any renderer-supplied path (resolving it and confirming it stays inside an expected directory) exactly like a server would validate untrusted input, and should use async \`fs/promises\` calls rather than synchronous ones to avoid blocking the whole main process during disk I/O.`,
+    },
   ],
 }
