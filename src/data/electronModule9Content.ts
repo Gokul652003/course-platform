@@ -37,5 +37,58 @@ Every example in this course — starting from Module 1's first window — has a
 
 > **Key idea:** Electron's security model treats every renderer as potentially hostile regardless of who wrote its code, enforced through \`nodeIntegration: false\` (no direct Node access), \`contextIsolation: true\` (preload and page JS contexts kept separate), and \`sandbox: true\` (OS-level process restriction) — all three now default-on after Electron's history of tightening these defaults following real security research, and all three should be left on for a production app.`,
     },
+    {
+      name: "Content Security Policy & Untrusted Content",
+      minutes: 9,
+      intro: "Lock down what a renderer's page is allowed to load and execute with a CSP header, and control navigation to untrusted URLs with will-navigate and setWindowOpenHandler.",
+      content: `## Content Security Policy, same as on the web
+
+A **Content Security Policy (CSP)** restricts what a page is allowed to load and execute — which script sources are trusted, whether inline \`<script>\` tags run at all, which domains images/styles can come from — and it works identically in an Electron renderer as it does in any browser, because it's the same Chromium engine enforcing it. A tight CSP is one of the most effective defenses against XSS actually executing anything dangerous, even if a script somehow gets injected into the page.
+
+\`\`\`js
+// main.js — setting a CSP header on every response the window loads
+const { session } = require("electron")
+
+session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+  callback({
+    responseHeaders: {
+      ...details.responseHeaders,
+      "Content-Security-Policy": [
+        "default-src 'self'; script-src 'self'; object-src 'none';",
+      ],
+    },
+  })
+})
+\`\`\`
+
+\`default-src 'self'\` restricts nearly everything to same-origin (your own bundled files) by default; \`script-src 'self'\` specifically forbids inline scripts and scripts from any other origin; \`object-src 'none'\` blocks plugin content like \`<object>\`/\`<embed>\` entirely, a legacy attack surface with essentially no legitimate use in a modern app. A CSP this strict is the right starting point for an app that only ever loads its own bundled code — it should be *loosened* deliberately and specifically (e.g. adding a particular CDN to \`script-src\`) only when an actual, understood need arises, never left permissive by default.
+
+## \`webSecurity\`: don't turn it off
+
+\`webPreferences.webSecurity\` (default \`true\`) enforces same-origin policy and other standard web security restrictions inside the renderer, exactly like a real browser. Setting it to \`false\` — sometimes suggested online as a quick fix for a CORS error during development — disables same-origin protections entirely for that window, and doing so in a shipped app is a serious, well-documented security mistake. If a CORS issue is blocking legitimate cross-origin requests, the correct fix is addressing it on the server side (proper CORS headers) or proxying the request through the main process, never disabling \`webSecurity\`.
+
+## Controlling navigation to untrusted destinations
+
+A renderer that can navigate to arbitrary URLs — following a link, or loading attacker-controlled content into an \`<iframe>\` or the top-level window — is a real risk if that URL is anything other than your own trusted app content. Two handlers let the main process intervene:
+
+\`\`\`js
+// main.js
+mainWindow.webContents.on("will-navigate", (event, url) => {
+  const allowed = new URL(url).origin === "app://your-app"
+  if (!allowed) event.preventDefault()
+})
+
+mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  // deny opening new Electron windows entirely; hand external links
+  // to the user's actual default browser instead
+  require("electron").shell.openExternal(url)
+  return { action: "deny" }
+})
+\`\`\`
+
+\`will-navigate\` fires before the *current* window navigates away from its loaded content — denying it for anything outside your app's own origin prevents a crafted link from replacing your app's UI with attacker-controlled content. \`setWindowOpenHandler\` intercepts attempts to open a *new* window or tab (e.g. a link with \`target="_blank"\`, or \`window.open()\`) — returning \`{ action: "deny" }\` blocks a new Electron \`BrowserWindow\` from opening at all, and routing the URL to \`shell.openExternal\` instead sends it to the user's actual system browser, which is both safer (your app's privileged renderer never loads that content) and matches normal user expectations for external links.
+
+> **Key idea:** A strict Content Security Policy (\`script-src 'self'\`, no inline scripts) blunts what an XSS bug could actually execute even if injection occurs; \`webSecurity\` should never be disabled to work around a CORS error; and \`will-navigate\`/\`setWindowOpenHandler\` let the main process reject navigation to untrusted origins and route external links to the system browser instead of opening them inside a privileged Electron window.`,
+    },
   ],
 }
