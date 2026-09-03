@@ -63,5 +63,64 @@ This works when \`contextIsolation\` is off — but with it on (the modern defau
 
 > **Key idea:** A preload script runs inside a specific renderer's process, before the page's own scripts, and is the only piece of an Electron app with access to both the DOM and a curated slice of Node/Electron APIs — making it the natural place to build a safe bridge, though attaching directly to \`window\` doesn't actually work once \`contextIsolation\` is on, which is where the next lesson picks up.`,
     },
+    {
+      name: "contextBridge & exposeInMainWorld",
+      minutes: 9,
+      intro: "Use contextBridge.exposeInMainWorld to safely publish a curated API from an isolated preload script into the page's own JavaScript world, and understand exactly what contextIsolation protects against.",
+      content: `## Two separate JavaScript worlds, one window
+
+With \`contextIsolation: true\` (the default, and the setting this course always assumes), Electron runs a preload script and the page's own JavaScript in two genuinely separate JS contexts, even though they share the same rendered DOM. Objects created in one context — including anything assigned directly to \`window\` — are not visible in the other. This isn't a bug to work around; it's a deliberate wall, and \`contextBridge\` is the one sanctioned door through it.
+
+## \`contextBridge.exposeInMainWorld\`
+
+\`\`\`js
+// preload.js
+const { contextBridge, ipcRenderer } = require("electron")
+
+contextBridge.exposeInMainWorld("api", {
+  getVersion: () => ipcRenderer.invoke("get-app-version"),
+  saveNote: (note) => ipcRenderer.invoke("save-note", note),
+  onDownloadProgress: (callback) => {
+    ipcRenderer.on("download-progress", (event, pct) => callback(pct))
+  },
+})
+\`\`\`
+
+\`\`\`js
+// renderer.js — the page's own script, running in the isolated "main world"
+const version = await window.api.getVersion()
+await window.api.saveNote({ title: "Ideas", body: "..." })
+window.api.onDownloadProgress((pct) => console.log(\`\${pct}% done\`))
+\`\`\`
+
+\`exposeInMainWorld(name, api)\` publishes \`api\` onto the page's \`window\` under \`window[name]\`, but does so through Electron's own bridging mechanism rather than a plain assignment — which is precisely what makes it work despite context isolation being on. The page's code sees a normal-looking object with normal-looking async methods; it has no idea (and doesn't need to know) that \`ipcRenderer\` or Node.js exist anywhere in the picture.
+
+## What this actually protects against
+
+The threat context isolation defends against isn't your own trusted preload code — it's what happens if the page ever runs untrusted or compromised JavaScript, whether from a bug, a supply-chain-compromised npm dependency bundled into your renderer code, or (for an app that loads any remote content at all) a malicious script. Without context isolation, that untrusted code, running in the same JS context as the preload script, could reach back and directly manipulate \`ipcRenderer\`, \`require\`, or anything else the preload script touched — walking straight past the boundary preload scripts are supposed to enforce. With it on, the *only* thing untrusted page code can ever see is exactly the object your preload script chose to hand over via \`exposeInMainWorld\` — nothing more, no matter what that page code does.
+
+## The narrower the exposed API, the better
+
+Because \`exposeInMainWorld\` is the entire surface area a renderer gets, the guiding principle is exposing the smallest, most specific API that the renderer actually needs — never something broad like "here's \`ipcRenderer\`, call whatever channel you want":
+
+\`\`\`js
+// AVOID — hands the entire ipcRenderer.invoke surface to the page,
+// defeating the purpose of a curated bridge
+contextBridge.exposeInMainWorld("ipc", {
+  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+})
+
+// PREFER — specific, named methods; the renderer can't invoke an
+// arbitrary channel even if it wanted to
+contextBridge.exposeInMainWorld("api", {
+  getVersion: () => ipcRenderer.invoke("get-app-version"),
+  saveNote: (note) => ipcRenderer.invoke("save-note", note),
+})
+\`\`\`
+
+The first version technically "works" but re-opens exactly the wide-open door context isolation exists to close — any code running in that renderer can now call *any* IPC channel the main process has registered, including ones never meant for renderer-triggered use. The second version is genuinely locked down to just the two operations the renderer needs.
+
+> **Key idea:** \`contextBridge.exposeInMainWorld(name, api)\` is the sanctioned way to publish an API from an isolated preload script onto the page's \`window\`, protecting against untrusted or compromised page code reaching \`ipcRenderer\`/Node directly — and the API exposed should be a narrow, named set of specific operations, never a raw pass-through to \`ipcRenderer.invoke\` itself.`,
+    },
   ],
 }
