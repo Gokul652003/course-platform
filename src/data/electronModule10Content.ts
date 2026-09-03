@@ -115,5 +115,62 @@ Both signing and notarization cost real money and setup time (a paid Apple Devel
 
 > **Key idea:** Unsigned apps trigger real OS-level warnings (SmartScreen on Windows, Gatekeeper on macOS) because signing cryptographically proves an app's publisher identity and integrity, not its safety; macOS additionally requires notarization — an Apple malware scan performed after signing — for a fully warning-free install, and both require paid developer accounts/certificates that are worth budgeting for before a public release.`,
     },
+    {
+      name: "Building Installers for Windows, macOS & Linux",
+      minutes: 9,
+      intro: "Compare the actual installer formats electron-builder produces per platform, and set up the publish config that ties packaging into auto-updates.",
+      content: `## The installer formats, per platform
+
+electron-builder supports several target formats per OS, each with a different install experience and tradeoffs:
+
+| Platform | Format | Notes |
+|---|---|---|
+| Windows | \`nsis\` | The most common choice — a familiar "Next, Next, Install" wizard installer, supports auto-update-friendly delta patches |
+| Windows | \`portable\` | A single \`.exe\`, no installation step, runs directly — useful for USB-stick or no-admin-rights scenarios |
+| macOS | \`dmg\` | A disk image the user mounts and drags the \`.app\` into Applications — the standard macOS distribution experience |
+| macOS | \`mas\` | Mac App Store package — a separate, more restrictive target with its own sandboxing rules if distributing through Apple's store |
+| Linux | \`AppImage\` | A single self-contained executable, no installation or root access needed — works across most distros |
+| Linux | \`deb\` / \`rpm\` | Native package formats for Debian/Ubuntu and Fedora/RHEL-family distros respectively, integrating with the system package manager |
+
+Most apps ship \`nsis\` on Windows and \`dmg\` on macOS as the primary format, since both match what users on those platforms expect from installed software; Linux commonly ships \`AppImage\` alongside one or both native package formats, since Linux users' preferences split more evenly across distributions and package managers than Windows or macOS users' do.
+
+## Configuring multiple targets
+
+\`\`\`json
+{
+  "build": {
+    "win": { "target": ["nsis", "portable"] },
+    "mac": { "target": ["dmg"] },
+    "linux": { "target": ["AppImage", "deb"] }
+  }
+}
+\`\`\`
+
+Each entry in a target array produces a separate output artifact in electron-builder's \`dist\` output folder — running one build command can produce several installable files per platform in a single pass.
+
+## The \`publish\` config: packaging meets updates
+
+A \`publish\` block tells electron-builder (and, by extension, electron-updater, covered next module) where finished builds should be uploaded and where a running app should later check for new ones:
+
+\`\`\`json
+{
+  "build": {
+    "publish": {
+      "provider": "github",
+      "owner": "your-org",
+      "repo": "your-app"
+    }
+  }
+}
+\`\`\`
+
+With this in place, \`electron-builder --publish always\` both builds the installers *and* uploads them as assets on a GitHub Release matching the app's version — the same release electron-updater will later check against to offer users an in-app update, closing the loop between "build an installer" and "ship an update," which is exactly where the next module picks up.
+
+## A realistic CI setup
+
+A production release pipeline typically runs electron-builder inside CI (GitHub Actions being the most common choice given the \`publish\` provider above) across a matrix of Windows, macOS, and Linux runners — each producing its own platform's artifacts, uploaded to the same release — rather than a single developer manually building and uploading each platform's installer from their own machine. This also solves the macOS cross-compilation limitation from the first lesson: a macOS CI runner builds the macOS target, a Windows runner builds the Windows target, and so on, each on its native platform.
+
+> **Key idea:** electron-builder's per-platform targets (\`nsis\`/\`portable\` on Windows, \`dmg\`/\`mas\` on macOS, \`AppImage\`/\`deb\`/\`rpm\` on Linux) can be configured as arrays to produce multiple installer formats per platform in one build, and a \`publish\` block ties packaging directly into distribution — typically run across a CI matrix of native runners per OS rather than cross-compiled from one machine.`,
+    },
   ],
 }
