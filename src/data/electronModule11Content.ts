@@ -88,5 +88,79 @@ A meaningful gotcha: on macOS, electron-updater generally requires the app to be
 
 > **Key idea:** \`autoUpdater.checkForUpdatesAndNotify()\` (or its individual events — \`update-available\`, \`download-progress\`, \`update-downloaded\`) checks the same \`publish\` provider electron-builder uploads to, downloads new versions in the background, and installs them via \`quitAndInstall()\` — best triggered by explicit user choice rather than forced immediately on download completion, and generally requiring a signed build on macOS to actually apply.`,
     },
+    {
+      name: "Native Notifications API",
+      minutes: 8,
+      intro: "Show real OS notifications from the main process with Electron's Notification module, including action buttons, and know the platform-specific setup each OS needs.",
+      content: `## The \`Notification\` module
+
+Electron's \`Notification\` class shows a genuine OS-native notification — the same visual style and placement as any other app's notifications on that platform (Notification Center on macOS, the Action Center on Windows, the desktop's own notification daemon on Linux):
+
+\`\`\`js
+const { Notification } = require("electron")
+
+function showNotification(title, body) {
+  if (!Notification.isSupported()) return
+
+  new Notification({ title, body }).show()
+}
+
+showNotification("Download complete", "your-file.zip is ready")
+\`\`\`
+
+\`Notification.isSupported()\` is worth checking before constructing one — while rare, some environments (certain Linux setups without a running notification daemon) genuinely don't support them, and this check avoids an unnecessary crash or silent failure path.
+
+## Reacting to interaction
+
+A notification instance is an \`EventEmitter\`, firing events for how the user interacts with it — clicking it, or dismissing it:
+
+\`\`\`js
+const notification = new Notification({ title: "New message", body: "..." })
+
+notification.on("click", () => {
+  mainWindow.show()
+  mainWindow.focus()
+})
+
+notification.on("close", () => {
+  console.log("Notification dismissed")
+})
+
+notification.show()
+\`\`\`
+
+A very common pattern — clicking a notification bringing the (possibly hidden or minimized) main window to the front — combines directly with the tray-resident hide/show pattern from Module 8.
+
+## Action buttons
+
+On platforms that support it, a notification can include actionable buttons directly in the notification itself, without requiring the user to first click into the app:
+
+\`\`\`js
+const notification = new Notification({
+  title: "Update available",
+  body: "Version 2.0 is ready to install",
+  actions: [
+    { type: "button", text: "Install Now" },
+    { type: "button", text: "Later" },
+  ],
+})
+
+notification.on("action", (event, index) => {
+  if (index === 0) autoUpdater.quitAndInstall()
+})
+
+notification.show()
+\`\`\`
+
+\`actions\` support is platform-dependent — most reliable on macOS, with more limited or absent support elsewhere, so an app relying heavily on action buttons should have a working fallback path (e.g. a normal click opening a window with the same choice) for platforms where they're unavailable rather than assuming they always render.
+
+## Platform-specific setup quirks
+
+- **macOS** — a packaged, signed app generally works immediately; notifications from an app running via plain \`electron .\` in development sometimes don't display correctly due to how macOS ties notification permissions to a registered, signed bundle identity — testing against a packaged dev build is more reliable than assuming dev-mode behavior matches production.
+- **Windows** — reliable notification delivery, particularly the app's icon showing correctly, benefits from the app having a proper Start Menu shortcut with a correctly associated \`AppUserModelID\` — something electron-builder's \`nsis\` installer sets up automatically, another reason a genuine installer (not just a portable \`.exe\`) tends to behave more predictably here.
+- **Linux** — depends on a notification daemon being present and running (true on essentially every mainstream desktop environment, but worth knowing as the one platform where \`Notification.isSupported()\` returning \`false\` is a real, non-hypothetical possibility).
+
+> **Key idea:** \`new Notification({ title, body }).show()\` shows a real OS-native notification, with \`click\`/\`close\`/\`action\` events for interaction (action buttons being platform-dependent, most reliable on macOS) — always guard with \`Notification.isSupported()\` first, and be aware each platform has its own setup quirks around signing and shortcuts that affect real-world reliability.`,
+    },
   ],
 }
