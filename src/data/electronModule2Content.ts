@@ -116,5 +116,46 @@ Skipping the \`window-all-closed\` platform check is a very common beginner mist
 
 > **Key idea:** The \`app\` singleton emits lifecycle events — \`whenReady\`, \`window-all-closed\`, \`activate\`, \`before-quit\` — that every Electron main process hooks into, and \`window-all-closed\`/\`activate\` specifically need a \`process.platform !== "darwin"\` branch because macOS keeps an app running in the dock after its last window closes, unlike Windows and Linux.`,
     },
+    {
+      name: "The Renderer Process & the DOM",
+      minutes: 8,
+      intro: "See exactly what a renderer can and can't touch by default, and understand the history behind nodeIntegration — why it existed, and why it's off by default today.",
+      content: `## A renderer is (almost) a regular web page
+
+Once a \`BrowserWindow\` loads \`index.html\`, everything inside that window behaves like an ordinary browser tab: the DOM, \`fetch\`, \`localStorage\`, CSS animations, \`<canvas>\`, service workers — the full surface of standard web APIs works exactly as it does in Chrome, because it *is* Chrome's rendering engine underneath. Any front-end framework — React, Vue, Svelte, or no framework at all — runs in a renderer exactly as it would in a browser tab.
+
+\`\`\`html
+<!-- index.html — this is genuinely just a web page -->
+<!DOCTYPE html>
+<html>
+  <body>
+    <div id="root"></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
+\`\`\`
+
+\`\`\`js
+// renderer.js — standard DOM/browser APIs, nothing Electron-specific
+document.getElementById("root").textContent = "Hello!"
+console.log(window.navigator.userAgent) // a real Chromium user agent string
+\`\`\`
+
+## What's missing by default
+
+What a renderer does **not** get, out of the box in a modern Electron app, is any of the following: \`require()\`, Node's \`fs\`/\`path\`/\`child_process\` modules, or Electron's own privileged modules like \`app\` or \`dialog\`. Typing \`require("fs")\` into a renderer's console throws \`ReferenceError: require is not defined\` — by design, matching the security boundary from the previous lesson.
+
+## A bit of history: \`nodeIntegration\`
+
+Early Electron (and its predecessor, Atom Shell) took the opposite default: renderers had Node.js access baked in via a \`nodeIntegration: true\` \`webPreferences\` option, so \`require("fs")\` worked directly from renderer JavaScript with zero extra setup. It was convenient — but it meant that **any** content a window could be tricked into loading (a malicious ad in a webview, a compromised third-party script, a crafted URL opened via \`shell.openExternal\`) had a direct path to full filesystem and process access on the user's machine, since it was running as ordinary renderer JavaScript with Node fully attached.
+
+As Electron matured and its apps grew more security-conscious, the ecosystem's stance flipped: \`nodeIntegration\` now defaults to \`false\` for every new \`BrowserWindow\`, and current best practice (Module 9 covers this in full) is to leave it off entirely, even for a window that only ever loads your own trusted, locally bundled code — defense in depth against a bug that somehow lets untrusted content or a script injection reach that window.
+
+## So how does a renderer do anything privileged?
+
+If a renderer can't \`require("fs")\` and can't touch Electron's main-process-only APIs, useful desktop features — opening a native save dialog, reading a config file, showing a tray icon — have to be requested *from* the renderer but actually *performed* by the main process, with the result handed back. That request/response bridge is **IPC** (inter-process communication), the subject of Module 4, and the safe way to expose a curated, minimal slice of it to a renderer is a **preload script**, the subject of Module 5. Together they're the answer to "renderer can't touch Node — so how does anything real get built?"
+
+> **Key idea:** A renderer process behaves like a normal, sandboxed web page — full DOM and browser APIs, no Node.js or Electron access by default — because \`nodeIntegration\` (which used to expose Node directly to renderers) is off by default in modern Electron for security; privileged functionality reaches a renderer instead through IPC and a preload script, covered in the next two modules.`,
+    },
   ],
 }
