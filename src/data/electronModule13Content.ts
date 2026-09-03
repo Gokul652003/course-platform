@@ -71,5 +71,41 @@ function createWindow() {
 
 > **Key idea:** A production Electron + React/Vite app separates main, preload, and renderer code into sibling directories with their own \`tsconfig.json\`s (making the process boundary structurally, not just conceptually, enforced), typically built with \`electron-vite\` or a manual multi-config Vite setup, with the main process switching between Vite's dev server and built output based on \`app.isPackaged\`.`,
     },
+    {
+      name: "Case Studies & Choosing Electron vs. Alternatives",
+      minutes: 8,
+      intro: "Revisit Electron against Tauri and Wails with the full picture this course has built, and get an honest framework for when Electron is — and isn't — the right call for a real project.",
+      content: `## What real apps have chosen, and why
+
+Revisiting the examples from Module 1's opening lesson with everything this course has since covered in view:
+
+- **Visual Studio Code** leans hard into Electron's maturity — a deep, native-feeling extension ecosystem, tight OS integration (file associations, jump lists, native menus — Modules 6 and 8), and genuinely competitive startup/runtime performance achieved through exactly the discipline this course has emphasized: careful process separation, lazy-loaded features, and a heavily optimized renderer bundle.
+- **Slack and Discord** lean on Electron for a single, richly interactive UI codebase shared across three OSes, with heavy investment in the native-polish layer from Module 11 — notifications, badges, tray integration — that makes each feel meaningfully "installed" rather than a wrapped website.
+- Teams newer to desktop, especially ones prioritizing a minimal install size and memory footprint over ecosystem maturity, increasingly evaluate **Tauri** or **Wails** instead, particularly for smaller utility apps where Electron's Chromium-bundling overhead is a proportionally larger cost.
+
+## Revisiting the comparison, now with real depth behind it
+
+| | Electron | Tauri | Wails |
+|---|---|---|---|
+| Native-side language | Node.js (JavaScript/TypeScript) | Rust | Go |
+| Rendering engine | Bundled Chromium (identical everywhere) | OS's native WebView (can differ subtly per OS) | OS's native WebView |
+| IPC model | \`ipcMain\`/\`ipcRenderer\`, \`contextBridge\` (Modules 4–5) | Rust \`#[tauri::command]\` functions called from JS | Go methods bound and called from JS |
+| Typical bundle size | ~150–200 MB | ~10–20 MB | ~10–20 MB |
+| Ecosystem/tooling maturity | Very high — electron-builder, electron-updater, huge community | Growing quickly, smaller than Electron's | Smaller, Go-community-focused |
+
+The core tradeoff hasn't changed since Module 1: Electron trades bundle size for consistency (one Chromium version, identical rendering across every OS) and ecosystem depth (electron-builder and electron-updater, covered in Modules 10–11, are mature, widely battle-tested tools with enormous real-world mileage); Tauri and Wails trade some of that consistency and maturity for a dramatically smaller footprint and a different native-language backend.
+
+## A practical framework for the decision
+
+- **Team's existing skills matter more than raw technical merit.** A team fluent in Node.js/TypeScript ships an Electron app's native-side logic faster than the same team would ship Rust-based Tauri commands from a standing start — and vice versa for a team already comfortable in Rust or Go.
+- **Bundle size matters more for some apps than others.** A utility that should feel lightweight and disposable (a quick screenshot tool, a small menu-bar widget) suffers more from a 150 MB install than a full-featured productivity app users expect to invest real disk space in already (an IDE, a chat client, a design tool).
+- **Ecosystem maturity compounds over a project's lifetime.** electron-builder, electron-updater, and years of accumulated Stack Overflow answers and battle-tested patterns (much of what this course has taught) reduce the number of genuinely novel problems a team has to solve themselves — a real, if hard-to-quantify, advantage for a long-lived production app.
+
+## Closing thought
+
+None of this course's material — process separation, IPC, preload scripts, security defaults, packaging, auto-updates — is really Electron-specific in spirit; it's the general shape of "how does a privileged native layer safely expose functionality to an untrusted web-rendered UI," a problem every one of these frameworks solves in its own way. Understanding it deeply in Electron's specific vocabulary, as this course has, transfers directly to reading Tauri's or Wails' documentation later — the concepts (a privileged backend, an isolated frontend, an explicit bridge between them, and getting that bridge's security right) are the same idea wearing a different framework's syntax.
+
+> **Key idea:** Electron remains the right default for teams with strong Node.js/TypeScript skills building apps where ecosystem maturity and consistent, identical-everywhere rendering outweigh install size — Tauri and Wails are the honest alternative when a smaller footprint and a Rust/Go backend are worth more than that maturity — and the underlying concepts this course covered (process separation, IPC, security boundaries) transfer directly to either alternative regardless of which one a project ultimately chooses.`,
+    },
   ],
 }
