@@ -106,5 +106,73 @@ Nothing here is enforced by Electron beyond \`main\` pointing at a real file —
 
 > **Key idea:** Electron is installed as a devDependency via npm, and \`package.json\`'s \`main\` field names the JavaScript file Electron runs as the main process on launch — running \`electron .\` in a folder is what actually starts the app using that entry point.`,
     },
+    {
+      name: "Your First Electron Window",
+      minutes: 10,
+      intro: "Write the smallest real main.js that opens a native window loading an HTML file, and understand why app.whenReady() gates everything.",
+      content: `## The three pieces of a minimal app
+
+Opening an actual window takes surprisingly little code — three ingredients from the \`electron\` package: \`app\` (controls the application's lifecycle), \`BrowserWindow\` (creates and manages a native window), and a page for that window to load.
+
+\`\`\`js
+// main.js
+const { app, BrowserWindow } = require("electron")
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 900,
+    height: 600,
+  })
+
+  win.loadFile("index.html")
+}
+
+app.whenReady().then(() => {
+  createWindow()
+})
+\`\`\`
+
+\`\`\`html
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Electron App</title>
+  </head>
+  <body>
+    <h1>Hello from Electron</h1>
+  </body>
+</html>
+\`\`\`
+
+Run it with \`npm start\` (using the \`electron .\` script from the previous lesson), and a native window opens with a title bar, showing the rendered HTML — indistinguishable, at this point, from a browser tab, because that's essentially what it is.
+
+## Why \`app.whenReady()\` matters
+
+Electron's \`app\` module fires a \`ready\` event once Chromium has finished its own internal initialization — creating windows *before* that point isn't reliably supported and can behave inconsistently across platforms. \`app.whenReady()\` returns a promise that resolves exactly when that initialization completes, which is why window creation always goes inside its \`.then()\` rather than running as soon as \`main.js\` starts executing top to bottom:
+
+\`\`\`js
+// WRONG — may run before Chromium has finished initializing
+const win = new BrowserWindow({ width: 900, height: 600 })
+
+// CORRECT — guaranteed to run only once Electron is ready
+app.whenReady().then(() => {
+  const win = new BrowserWindow({ width: 900, height: 600 })
+  win.loadFile("index.html")
+})
+\`\`\`
+
+This one-line difference is one of the most common early mistakes when following outdated tutorials or copy-pasting snippets — always gate window creation behind \`whenReady\`.
+
+## \`loadFile\` vs. \`loadURL\`
+
+\`BrowserWindow\` instances load content one of two ways: \`win.loadFile("index.html")\` for a local file on disk (relative to the app's root, the common case during development and for a fully bundled production app), or \`win.loadURL("https://example.com")\` for loading a remote address — useful during development against a dev server (\`win.loadURL("http://localhost:5173")\` for a Vite dev server, say) or for the rarer case of an app that's intentionally displaying remote web content. Most production Electron apps use \`loadFile\` against their own bundled, built assets, and reserve \`loadURL\` for pointing at a local dev server only while developing.
+
+## What just happened, architecturally
+
+Even this tiny example already involves two separate processes working together: \`main.js\` — running in Node.js, with access to \`app\` and \`BrowserWindow\` — is the **main process**, and the window it created, running the HTML/CSS/JS from \`index.html\`, is a **renderer process**. They're separate operating-system processes communicating in a specific, deliberate way. The next module is dedicated entirely to understanding that split, since almost everything else in Electron builds on it.
+
+> **Key idea:** A minimal Electron app creates a \`BrowserWindow\` and calls \`loadFile\`/\`loadURL\` on it inside \`app.whenReady().then(...)\` — never before — and even this small example already splits into a main process (running \`main.js\`) and a renderer process (the window's page), the foundational architecture the rest of this course builds on.`,
+    },
   ],
 }
