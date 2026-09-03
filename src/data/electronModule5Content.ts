@@ -122,5 +122,76 @@ The first version technically "works" but re-opens exactly the wide-open door co
 
 > **Key idea:** \`contextBridge.exposeInMainWorld(name, api)\` is the sanctioned way to publish an API from an isolated preload script onto the page's \`window\`, protecting against untrusted or compromised page code reaching \`ipcRenderer\`/Node directly — and the API exposed should be a narrow, named set of specific operations, never a raw pass-through to \`ipcRenderer.invoke\` itself.`,
     },
+    {
+      name: "Building a Typed API Bridge",
+      minutes: 9,
+      intro: "Share one TypeScript interface between a preload script and renderer code so window.api is fully typed and autocompleted, instead of an untyped any.",
+      content: `## The problem: \`window.api\` has no type by default
+
+In a TypeScript-based Electron + renderer setup, \`window\` is typed by the standard DOM library, which knows nothing about an \`api\` property a preload script attached at runtime. Left alone, \`window.api\` types as \`any\`, silently discarding every benefit TypeScript would otherwise offer — no autocomplete, no compile-time typo-catching, no protection if a method's signature changes.
+
+## One shared interface, two consumers
+
+The fix is a single interface describing the exposed API's shape, imported by both the preload script (to type-check what it actually exposes) and a global declaration file (to type what the renderer sees on \`window\`):
+
+\`\`\`ts
+// shared/preload-api.ts — the single source of truth for the bridge's shape
+export interface PreloadApi {
+  getVersion: () => Promise<string>
+  saveNote: (note: { title: string; body: string }) => Promise<void>
+  onDownloadProgress: (callback: (pct: number) => void) => void
+}
+\`\`\`
+
+\`\`\`ts
+// preload.ts
+import { contextBridge, ipcRenderer } from "electron"
+import type { PreloadApi } from "../shared/preload-api"
+
+const api: PreloadApi = {
+  getVersion: () => ipcRenderer.invoke("get-app-version"),
+  saveNote: (note) => ipcRenderer.invoke("save-note", note),
+  onDownloadProgress: (callback) => {
+    ipcRenderer.on("download-progress", (_event, pct) => callback(pct))
+  },
+}
+
+contextBridge.exposeInMainWorld("api", api)
+\`\`\`
+
+Typing \`api\` as \`PreloadApi\` here means TypeScript now checks the preload script itself — if a method's implementation doesn't match the interface's declared shape, that's a compile error caught long before it becomes a confusing runtime bug in the renderer.
+
+## Declaring the global \`window.api\`
+
+The renderer side needs a global augmentation — extending the built-in \`Window\` interface with the shape from the shared file:
+
+\`\`\`ts
+// renderer/global.d.ts
+import type { PreloadApi } from "../shared/preload-api"
+
+declare global {
+  interface Window {
+    api: PreloadApi
+  }
+}
+
+export {} // makes this a module, required for "declare global" to work
+\`\`\`
+
+With this file included in the renderer's TypeScript project, \`window.api\` is now fully typed everywhere in renderer code:
+
+\`\`\`ts
+// some renderer component
+const version = await window.api.getVersion() // string, autocompleted
+await window.api.saveNote({ title: "Ideas", body: "..." }) // arg shape checked
+await window.api.saveNote({ title: "Ideas" }) // ← compile error: missing "body"
+\`\`\`
+
+## Why the \`export {}\` line matters
+
+A \`.d.ts\` file with no top-level \`import\`/\`export\` is treated by TypeScript as a global *script*, and a \`declare global\` block inside a script (rather than a module) behaves differently and can silently fail to merge correctly. Adding an empty \`export {}\` forces the file to be treated as a module, which is what makes \`declare global\` reliably augment the built-in \`Window\` type. This is a genuinely easy detail to miss — a global augmentation file that's missing it can compile without error yet not actually add anything.
+
+> **Key idea:** Defining the preload API's shape as one shared TypeScript interface — used both to type-check the preload script's implementation and, via \`declare global { interface Window { api: PreloadApi } }\` in a module-scoped \`.d.ts\` file, to type \`window.api\` in the renderer — gives full autocomplete and compile-time safety across the preload/renderer boundary instead of leaving \`window.api\` as an untyped \`any\`.`,
+    },
   ],
 }
