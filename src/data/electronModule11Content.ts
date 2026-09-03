@@ -162,5 +162,89 @@ notification.show()
 
 > **Key idea:** \`new Notification({ title, body }).show()\` shows a real OS-native notification, with \`click\`/\`close\`/\`action\` events for interaction (action buttons being platform-dependent, most reliable on macOS) — always guard with \`Notification.isSupported()\` first, and be aware each platform has its own setup quirks around signing and shortcuts that affect real-world reliability.`,
     },
+    {
+      name: "Progress Bars, Badges & Taskbar Integration",
+      minutes: 8,
+      intro: "Show download progress directly in the taskbar/dock icon, add a badge count for unread items, and build a Windows jump list — small native touches with outsized polish impact.",
+      content: `## Progress bars in the taskbar/dock icon itself
+
+Beyond an in-app progress bar, Electron can draw progress directly onto the window's OS taskbar (Windows) or dock (macOS) icon — visible even when the app's window isn't focused or is minimized, the same effect you've likely seen from a file download or a game update in other apps:
+
+\`\`\`js
+mainWindow.setProgressBar(0.35) // 35% — a determinate progress state
+
+mainWindow.setProgressBar(-1) // removes the progress bar entirely
+mainWindow.setProgressBar(2) // an indeterminate/"busy" state (platform-dependent)
+\`\`\`
+
+A natural pairing with the auto-update flow from earlier in this module: driving \`setProgressBar\` from \`autoUpdater\`'s \`download-progress\` event gives a user visible update progress without needing any custom in-app UI at all:
+
+\`\`\`js
+autoUpdater.on("download-progress", (progress) => {
+  mainWindow.setProgressBar(progress.percent / 100)
+})
+
+autoUpdater.on("update-downloaded", () => {
+  mainWindow.setProgressBar(-1)
+})
+\`\`\`
+
+## Badge counts
+
+\`app.setBadgeCount(count)\` shows a small numeric badge on the app's dock icon (macOS/Linux) — the familiar "3 unread" style indicator common to chat and mail apps:
+
+\`\`\`js
+app.setBadgeCount(3)
+app.setBadgeCount(0) // clears the badge
+\`\`\`
+
+Windows doesn't support \`setBadgeCount\` directly — the equivalent there is an **overlay icon** on the taskbar button, a small image layered on top of the app's normal taskbar icon:
+
+\`\`\`js
+if (process.platform === "win32") {
+  mainWindow.setOverlayIcon(
+    path.join(__dirname, "badge-icon.png"),
+    "3 unread messages", // accessibility description, required
+  )
+}
+\`\`\`
+
+This is one more example of the recurring \`process.platform\` branching pattern from earlier modules — the *concept* (show an unread-count indicator) is cross-platform, but the concrete API achieving it genuinely differs per OS.
+
+## Windows jump lists
+
+A jump list is the menu of quick actions/recent items shown when a user right-clicks an app's taskbar icon on Windows — \`app.setJumpList\` configures it:
+
+\`\`\`js
+if (process.platform === "win32") {
+  app.setJumpList([
+    {
+      type: "tasks",
+      items: [
+        {
+          type: "task",
+          title: "New Note",
+          program: process.execPath,
+          args: "--new-note",
+          iconPath: process.execPath,
+          iconIndex: 0,
+        },
+      ],
+    },
+    {
+      type: "recent", // Windows automatically populates recently opened files here
+    },
+  ])
+}
+\`\`\`
+
+A \`"tasks"\` group defines custom actions (each effectively relaunching the app with specific \`args\`, read back via \`process.argv\` in \`main.js\`), while a \`"recent"\` group asks Windows to automatically populate recently-opened-file entries, working together with \`app.addRecentDocument(path)\` called elsewhere in the app whenever a file is opened.
+
+## These are small, but they matter
+
+None of these features are essential to an app's core function — a user can use most apps just fine without a taskbar progress bar or a jump list. But collectively, this is exactly the kind of native-feeling polish that separates an app that merely *works* from one that feels like it genuinely belongs on the user's desktop rather than a web page wearing a window frame — and, notably, it's exactly the category of integration a plain web app (even a well-built PWA) simply cannot offer at all.
+
+> **Key idea:** \`win.setProgressBar()\` draws progress onto the taskbar/dock icon itself (pairing naturally with auto-update download progress), unread counts use \`app.setBadgeCount\` on macOS/Linux but \`setOverlayIcon\` on Windows, and \`app.setJumpList\` builds a Windows right-click taskbar menu — all small, platform-specific touches unavailable to a plain web app that meaningfully improve how native a desktop app feels.`,
+    },
   ],
 }
