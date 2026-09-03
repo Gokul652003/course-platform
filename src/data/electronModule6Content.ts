@@ -151,5 +151,48 @@ A few practical details:
 
 > **Key idea:** \`Menu.popup({ window })\` shows a menu on demand (the mechanism behind right-click context menus, usually triggered via IPC from a renderer's \`contextmenu\` event), and \`Tray\` puts a persistent, always-reachable icon in the system tray with its own \`setContextMenu\` — both reuse the same \`Menu.buildFromTemplate\` API as the application menu.`,
     },
+    {
+      name: "Global Shortcuts & Accelerators",
+      minutes: 8,
+      intro: "Register OS-wide keyboard shortcuts with globalShortcut, understand how they differ from menu accelerators, and why cleaning them up on quit isn't optional.",
+      content: `## Global shortcuts work even when the app isn't focused
+
+A menu \`accelerator\` (previous lesson) only fires while the app has focus — normal for menu commands. Some features genuinely need to work no matter what the user is doing elsewhere on their machine: a screenshot tool activated from anywhere, a music player's play/pause bound to a media key, a quick-capture note app. That's what \`globalShortcut\` is for — it registers a key combination at the **operating-system** level, firing a callback regardless of which app currently has focus:
+
+\`\`\`js
+const { app, globalShortcut } = require("electron")
+
+app.whenReady().then(() => {
+  const registered = globalShortcut.register("CommandOrControl+Shift+Space", () => {
+    console.log("Global shortcut triggered!")
+    showQuickCaptureWindow()
+  })
+
+  if (!registered) {
+    console.warn("Failed to register global shortcut — likely already taken by another app")
+  }
+})
+\`\`\`
+
+\`globalShortcut.register(accelerator, callback)\` returns \`false\` (rather than throwing) if the combination couldn't be registered — most commonly because another application already claimed it first. Checking the return value matters: silently failing to register a shortcut the user expects to work is a confusing, hard-to-diagnose support issue if left unchecked.
+
+## Always unregister on quit
+
+Because a global shortcut is a genuinely OS-level hook, **failing to release it can leave that key combination unusable system-wide** even after your app has closed, until the process that registered it is confirmed gone — behavior that varies somewhat by platform, but is exactly the kind of side effect a well-behaved app avoids entirely by cleaning up properly:
+
+\`\`\`js
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll()
+})
+\`\`\`
+
+\`will-quit\` (distinct from \`before-quit\` covered in Module 2 — \`will-quit\` fires slightly later, once the app has committed to quitting and windows are closing) is the standard place for this cleanup, and \`unregisterAll()\` is simpler and safer than manually unregistering each shortcut by name one at a time.
+
+## Global shortcuts are a limited, shared resource — use sparingly
+
+Because every app on a user's machine that registers global shortcuts is drawing from the same OS-wide namespace, and a user has no built-in way to see which app "owns" a given combination, registering an unusual, unlikely-to-collide combination (as in the \`CommandOrControl+Shift+Space\` example) is far friendlier than claiming a common one a user might expect some other app to already use. A genuinely well-behaved app also typically makes its global shortcuts user-configurable in settings, rather than hardcoding a fixed combination forever — precisely because collisions with other installed software are common and outside your control.
+
+> **Key idea:** \`globalShortcut.register(accelerator, callback)\` binds a key combination at the OS level so it fires even when the app isn't focused, returns \`false\` (not a thrown error) if the combination is already taken elsewhere, and must be released via \`globalShortcut.unregisterAll()\` on the \`will-quit\` event — skipping that cleanup can leave a key combination unusable system-wide after the app closes.`,
+    },
   ],
 }
