@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette, Wand2, FileType2, RefreshCw, Network } from "lucide-react"
+import { Terminal, Code2, Cloud, CodeXml, Container, Triangle, Braces, TestTube, GitBranch, Atom, Gauge, Wind, Palette, Wand2, FileType2, RefreshCw, Network, AppWindow } from "lucide-react"
 import { linuxModules, linuxCourse } from "./courseData"
 import { kotlinModules, kotlinCourse } from "./kotlinCourseData"
 import { goModules, goCourse } from "./goCourseData"
@@ -17,6 +17,7 @@ import { jsModules, jsCourse } from "./jsCourseData"
 import { jestModules, jestCourse } from "./jestCourseData"
 import { gitModules, gitCourse } from "./gitCourseData"
 import { reactModules, reactCourse } from "./reactCourseData"
+import { electronModules, electronCourse } from "./electronCourseData"
 import type { Course, Module } from "../types"
 
 export interface CourseBundle {
@@ -168,6 +169,14 @@ function ReactGlyph() {
   return (
     <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg shadow-cyan-500/20">
       <Atom size={40} strokeWidth={1.8} className="text-white" />
+    </span>
+  )
+}
+
+function ElectronGlyph() {
+  return (
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-indigo-700 shadow-lg shadow-sky-500/20">
+      <AppWindow size={40} strokeWidth={1.8} className="text-white" />
     </span>
   )
 }
@@ -509,6 +518,26 @@ export const courses: CourseBundle[] = [
       gradient: "from-cyan-500 to-blue-500",
       text: "text-cyan-600 dark:text-cyan-400",
       border: "border-cyan-500/30",
+    },
+  },
+  {
+    id: "electron",
+    title: electronCourse.title,
+    tagline: electronCourse.tagline,
+    description: electronCourse.description,
+    modules: electronModules,
+    course: electronCourse,
+    icon: <ElectronGlyph />,
+    tags: [
+      "Beginner → Advanced",
+      `${electronCourse.stats.lessons} lessons`,
+      "Desktop apps",
+      "IPC & security",
+    ],
+    accent: {
+      gradient: "from-sky-600 to-indigo-700",
+      text: "text-sky-600 dark:text-sky-400",
+      border: "border-sky-600/30",
     },
   },
 ]
