@@ -138,5 +138,93 @@ For an app that opens an unbounded number of secondary windows (a document edito
 
 > **Key idea:** \`parent\`/\`modal\` options relate a secondary window to an existing one (modal specifically blocking interaction with the parent until closed), and every created \`BrowserWindow\` must be kept referenced somewhere that outlives its creating function — an unreferenced window can be garbage-collected and close unexpectedly, a subtle and common early bug.`,
     },
+    {
+      name: "Window State, Events & DevTools",
+      minutes: 9,
+      intro: "Listen for resize/move/close events, persist a window's size and position across launches, and open Chrome DevTools against a renderer for real debugging.",
+      content: `## The events a window emits
+
+A \`BrowserWindow\` instance is an \`EventEmitter\` firing events at every meaningful change to its state:
+
+\`\`\`js
+win.on("resize", () => {
+  const [width, height] = win.getSize()
+  console.log("resized to", width, height)
+})
+
+win.on("move", () => {
+  const [x, y] = win.getPosition()
+  console.log("moved to", x, y)
+})
+
+win.on("close", (event) => {
+  // fires BEFORE the window actually closes — event.preventDefault()
+  // here can cancel the close, e.g. to prompt "save changes?"
+})
+
+win.on("closed", () => {
+  // fires AFTER the window is gone — too late to prevent anything,
+  // this is where you'd clear out any reference you were holding
+})
+\`\`\`
+
+The distinction between \`close\` and \`closed\` matters: \`close\` is cancelable (call \`event.preventDefault()\` inside the handler to stop the window from closing — the standard way to implement an "unsaved changes" confirmation), while \`closed\` is purely informational, firing once the window is already gone and useful only for cleanup like nulling out a reference (as shown in the previous lesson).
+
+## Persisting window bounds across launches
+
+A common piece of app polish is remembering a window's size and position between launches, rather than always opening at a fixed default size. This isn't a built-in Electron feature — it's a small amount of app code, reading and writing a JSON file yourself:
+
+\`\`\`js
+const fs = require("fs")
+const path = require("path")
+const { app, BrowserWindow } = require("electron")
+
+const statePath = path.join(app.getPath("userData"), "window-state.json")
+
+function loadWindowState() {
+  try {
+    return JSON.parse(fs.readFileSync(statePath, "utf-8"))
+  } catch {
+    return { width: 1000, height: 700 } // sensible default on first launch
+  }
+}
+
+function createWindow() {
+  const state = loadWindowState()
+  const win = new BrowserWindow({ ...state })
+
+  const saveState = () => {
+    fs.writeFileSync(statePath, JSON.stringify(win.getBounds()))
+  }
+
+  win.on("resize", saveState)
+  win.on("move", saveState)
+}
+\`\`\`
+
+\`app.getPath("userData")\` returns a per-OS, per-app directory intended for exactly this kind of small persisted state (it's where Chromium-based apps traditionally keep things like local storage and cookies too) — always prefer it over guessing a path, since its actual location differs by platform (\`AppData\` on Windows, \`Application Support\` on macOS, a XDG-compliant directory on Linux). A production app would typically debounce \`saveState\` rather than writing synchronously on every single resize/move tick, but the shape above is the core idea.
+
+## Opening DevTools against a renderer
+
+Because a renderer is a real Chromium page, the exact same DevTools you'd use on a Chrome tab work against it:
+
+\`\`\`js
+win.webContents.openDevTools()
+// or, undockable from the main window:
+win.webContents.openDevTools({ mode: "detach" })
+\`\`\`
+
+This is invaluable during development — full console, network tab, element inspector, breakpoints in renderer JavaScript — and is typically gated behind a development-only check or a menu item, since shipping a production build with DevTools opening automatically is rarely intended:
+
+\`\`\`js
+if (!app.isPackaged) {
+  win.webContents.openDevTools()
+}
+\`\`\`
+
+\`app.isPackaged\` is \`true\` for a built, distributed app and \`false\` while running via \`electron .\` in development — a reliable way to gate dev-only behavior without an extra environment variable.
+
+> **Key idea:** \`BrowserWindow\` fires cancelable \`close\` and informational \`closed\` events (useful for "unsaved changes" prompts and cleanup respectively), window bounds can be persisted to \`app.getPath("userData")\` as plain JSON to restore size/position across launches, and \`webContents.openDevTools()\` opens real Chrome DevTools against any renderer — typically gated behind \`!app.isPackaged\`.`,
+    },
   ],
 }
