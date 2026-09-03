@@ -117,5 +117,62 @@ Protocol registration written in \`main.js\` only takes effect once the app has 
 
 > **Key idea:** \`app.setAsDefaultProtocolClient("myapp")\` registers a custom URL scheme with the OS; macOS delivers incoming links via the \`open-url\` event while Windows/Linux deliver them as a command-line argument caught through the single-instance lock's \`second-instance\` handler — both platforms need explicit handling for deep linking to work everywhere.`,
     },
+    {
+      name: "Auto-Launch & Tray-Resident Apps",
+      minutes: 8,
+      intro: "Let a user opt into launching your app at login, and build a tray-resident app that hides instead of quitting when its window is closed.",
+      content: `## Launching at login
+
+Many background-style apps (a sync client, a status monitor) offer a "start automatically when you log in" setting. Electron exposes this directly through \`app.setLoginItemSettings\`, which registers (or unregisters) the app with the OS's own startup-items mechanism — no manual registry or launch-agent editing required:
+
+\`\`\`js
+const { app } = require("electron")
+
+function setAutoLaunch(enabled) {
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    openAsHidden: true, // macOS: start without an immediately visible window
+  })
+}
+
+// reading the current setting back — useful for reflecting real
+// state in a settings checkbox rather than trusting your own stored flag
+const current = app.getLoginItemSettings()
+console.log(current.openAtLogin) // true/false, reflecting actual OS state
+\`\`\`
+
+\`getLoginItemSettings()\` is worth calling to *display* the current state in a settings UI rather than trusting a separately stored preference — the user could have removed the app from their OS's own startup-items list directly, outside your app entirely, and \`getLoginItemSettings()\` reflects the OS's actual source of truth.
+
+## Hiding to tray instead of quitting
+
+A tray-resident app (Module 6 covered building the \`Tray\` icon itself) typically wants closing its main window to **hide** it, not quit the whole app — the app keeps running in the tray, ready to be reopened instantly, rather than shutting down and losing any in-memory state:
+
+\`\`\`js
+let isQuitting = false
+
+mainWindow.on("close", (event) => {
+  if (!isQuitting) {
+    event.preventDefault()
+    mainWindow.hide()
+  }
+})
+
+app.on("before-quit", () => {
+  isQuitting = true // lets a REAL quit (e.g. from the tray menu) proceed
+})
+
+tray.on("click", () => {
+  mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()
+})
+\`\`\`
+
+The \`isQuitting\` flag is the key piece: without it, \`event.preventDefault()\` inside \`close\` would make the app effectively **unquittable** through normal means, since even a genuine "Quit" menu action would just hide the window instead of actually exiting. Setting \`isQuitting = true\` in \`before-quit\` (which fires when the user chooses an actual Quit action, distinct from clicking the window's close button) lets the close handler distinguish "user clicked the window's X button" (hide) from "user chose Quit" (let it close for real).
+
+## macOS dock visibility
+
+On macOS specifically, a tray-only app (no window ever visible, purely tray-resident) often also hides its dock icon entirely with \`app.dock.hide()\`, so it presents purely as a menu-bar utility rather than also occupying a dock slot and appearing in the app switcher — a small platform-specific touch that meaningfully changes how "native" the app feels on that OS.
+
+> **Key idea:** \`app.setLoginItemSettings({ openAtLogin: true })\` registers the app with the OS's real startup-items list (and \`getLoginItemSettings()\` reads it back as the source of truth), and a tray-resident app should intercept its window's \`close\` event to hide rather than quit — guarded by an \`isQuitting\` flag set in \`before-quit\` so a genuine Quit action still works.`,
+    },
   ],
 }
