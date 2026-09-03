@@ -66,5 +66,93 @@ Nothing about \`ipcMain\`/\`ipcRenderer\` enforces any structure on channel name
 
 > **Key idea:** \`ipcRenderer.send(channel, ...args)\` fires a one-way message to \`ipcMain.on(channel, listener)\` in the main process, and a reply (if needed) is a separate message sent back via \`event.sender.send\` — functional, but awkward for anything shaped like a request expecting a response, which is exactly what \`invoke\`/\`handle\` (next lesson) solves directly.`,
     },
+    {
+      name: "Two-Way IPC with invoke/handle",
+      minutes: 10,
+      intro: "Use ipcRenderer.invoke and ipcMain.handle to turn IPC into a clean async request/response call, including how errors thrown in the main process propagate back.",
+      content: `## A request that actually returns a value
+
+\`ipcRenderer.invoke\` and \`ipcMain.handle\` give IPC the shape most calls actually want: "ask the main process to do something, and give me a promise for the result" — much closer to calling an async function than manually pairing up \`send\`/\`on\` channels.
+
+\`\`\`js
+// main.js
+const { ipcMain, app } = require("electron")
+
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion()
+})
+
+ipcMain.handle("read-config", async () => {
+  const data = await fs.promises.readFile(configPath, "utf-8")
+  return JSON.parse(data)
+})
+\`\`\`
+
+\`\`\`js
+// renderer (via preload bridge)
+const version = await ipcRenderer.invoke("get-app-version")
+console.log(version) // "1.4.2"
+
+const config = await ipcRenderer.invoke("read-config")
+\`\`\`
+
+\`ipcMain.handle(channel, listener)\` registers a handler whose **return value** (or resolved promise, if the handler is \`async\`) becomes the value \`ipcRenderer.invoke\` resolves with on the renderer side. One channel, one call, one return value — no manually pairing up a second reply channel the way the previous lesson's \`send\`/\`on\` example needed.
+
+## Passing arguments
+
+Arguments flow through \`invoke\` exactly like a normal function call, after the channel name:
+
+\`\`\`js
+// main.js
+ipcMain.handle("save-note", (event, note) => {
+  return saveNoteToDisk(note)
+})
+\`\`\`
+
+\`\`\`js
+// renderer
+await ipcRenderer.invoke("save-note", { title: "Ideas", body: "..." })
+\`\`\`
+
+As with \`ipcMain.on\`, the handler's first parameter is always the \`IpcMainInvokeEvent\`, with your actual arguments following it.
+
+## Errors propagate as rejected promises
+
+If a handler throws (or its returned promise rejects), that failure crosses the process boundary as a **rejected promise** on the renderer side — letting ordinary \`try\`/\`catch\` (or \`.catch()\`) handle IPC failures exactly like any other async error:
+
+\`\`\`js
+// main.js
+ipcMain.handle("delete-file", async (event, filePath) => {
+  if (!filePath.startsWith(SAFE_DIRECTORY)) {
+    throw new Error("Refusing to delete outside the app's data directory")
+  }
+  await fs.promises.unlink(filePath)
+})
+\`\`\`
+
+\`\`\`js
+// renderer
+try {
+  await ipcRenderer.invoke("delete-file", somePath)
+} catch (err) {
+  console.error("Delete failed:", err.message)
+}
+\`\`\`
+
+One caveat worth knowing: the error that arrives in the renderer is a **serialized copy**, not the original \`Error\` instance — its \`message\` crosses over reliably, but custom error subclasses, custom properties, and stack traces from the main process don't survive the trip intact. For most apps, checking \`err.message\` (and designing deliberate, descriptive messages on the main-process side, as in the example above) is sufficient; anything requiring richer structured error data is usually better sent back as a plain \`{ ok: false, reason: "..." }\` object from the handler instead of relying on a thrown \`Error\`'s full shape surviving.
+
+## \`invoke\`/\`handle\` vs. \`send\`/\`on\`: when to use which
+
+| | \`invoke\`/\`handle\` | \`send\`/\`on\` |
+|---|---|---|
+| Shape | Request → single response | Fire-and-forget, or main-initiated push |
+| Return value | Yes — a promise | No — needs a manual reply channel |
+| Error propagation | Automatic (rejected promise) | Manual |
+| Typical use | "Get the app version," "read this file," "show a dialog" | "The window resized," "a background download progressed" (main → renderer push, no reply expected) |
+
+In practice, most request-shaped IPC in a modern Electron app uses \`invoke\`/\`handle\`; \`send\`/\`on\` remains the right tool specifically for the main process *pushing* an event to a renderer with nothing to reply (a progress update, a menu action) rather than a renderer asking a question.
+
+> **Key idea:** \`ipcRenderer.invoke(channel, ...args)\` paired with \`ipcMain.handle(channel, listener)\` turns IPC into a clean async call — the handler's return value (or thrown error) becomes the invoking promise's resolution (or rejection) — and is the right default for request/response IPC, leaving \`send\`/\`on\` for fire-and-forget or main-initiated pushes.`,
+    },
   ],
 }
