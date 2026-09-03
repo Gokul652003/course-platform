@@ -80,5 +80,76 @@ This is the same \`process.platform\` branching pattern from Module 2's lifecycl
 
 > **Key idea:** \`Menu.buildFromTemplate\` turns a plain array into a native application menu installed via \`Menu.setApplicationMenu\`; use \`role\` for standard commands (undo/copy/quit/...) to get correct native behavior for free rather than hand-writing \`click\` handlers for them, and remember macOS expects an app-name menu as the first entry.`,
     },
+    {
+      name: "Context Menus & Tray Icons",
+      minutes: 9,
+      intro: "Show a right-click context menu on demand with Menu.popup, and build a system tray icon with its own menu for a background-resident app.",
+      content: `## Context menus: built the same way, shown on demand
+
+A right-click context menu uses the exact same \`Menu.buildFromTemplate\` API as an application menu — the only difference is *how* it's displayed: instead of \`setApplicationMenu\`, you call \`.popup()\` on demand, typically in response to a \`contextmenu\` event forwarded from the renderer via IPC:
+
+\`\`\`js
+// preload.js
+contextBridge.exposeInMainWorld("api", {
+  showContextMenu: () => ipcRenderer.send("show-context-menu"),
+})
+\`\`\`
+
+\`\`\`js
+// main.js
+const { Menu, ipcMain, BrowserWindow } = require("electron")
+
+ipcMain.on("show-context-menu", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const menu = Menu.buildFromTemplate([
+    { label: "Copy", role: "copy" },
+    { label: "Delete Note", click: () => console.log("delete") },
+  ])
+  menu.popup({ window: win })
+})
+\`\`\`
+
+\`\`\`js
+// renderer.js
+document.addEventListener("contextmenu", (e) => {
+  e.preventDefault()
+  window.api.showContextMenu()
+})
+\`\`\`
+
+\`Menu.popup({ window })\` shows the menu at the current cursor position by default, attached to the given window — the same building blocks as the app menu, just triggered by a right-click instead of installed permanently.
+
+## System tray icons
+
+A \`Tray\` instance puts a persistent icon in the OS's system tray (or menu bar, on macOS) — the standard way a background-resident app (a chat client, a sync tool) stays reachable without an always-open window:
+
+\`\`\`js
+const { app, Tray, Menu } = require("electron")
+const path = require("path")
+
+let tray = null
+
+app.whenReady().then(() => {
+  tray = new Tray(path.join(__dirname, "tray-icon.png"))
+  tray.setToolTip("My App")
+
+  const contextMenu = Menu.buildFromTemplate([
+    { label: "Open", click: () => showMainWindow() },
+    { label: "Quit", role: "quit" },
+  ])
+  tray.setContextMenu(contextMenu)
+
+  tray.on("click", () => showMainWindow())
+})
+\`\`\`
+
+A few practical details:
+
+- \`tray\` must be kept referenced at module scope (or similar) for the exact same garbage-collection reason covered in Module 3 for windows — an unreferenced \`Tray\` instance can disappear unexpectedly.
+- \`setContextMenu\` attaches a menu shown on right-click (or on any click, on some platforms); the separate \`click\` event lets you define what a plain left-click does, commonly toggling the main window's visibility.
+- Tray icon assets typically need multiple resolutions/formats per platform for a crisp look (e.g. a template image on macOS that adapts to light/dark menu bars) — this is one of the more platform-fiddly parts of Electron, worth testing on every OS you target rather than assuming one icon file looks right everywhere.
+
+> **Key idea:** \`Menu.popup({ window })\` shows a menu on demand (the mechanism behind right-click context menus, usually triggered via IPC from a renderer's \`contextmenu\` event), and \`Tray\` puts a persistent, always-reachable icon in the system tray with its own \`setContextMenu\` — both reuse the same \`Menu.buildFromTemplate\` API as the application menu.`,
+    },
   ],
 }
