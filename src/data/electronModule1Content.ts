@@ -48,5 +48,63 @@ Tauri's biggest pitch is bundle size and memory footprint, since it reuses the O
 
 > **Key idea:** Electron bundles Chromium (for rendering your UI with ordinary HTML/CSS/JS) and Node.js (for privileged OS access) into one runtime, letting a single web-tech codebase ship as a real desktop app on Windows, macOS, and Linux — trading a larger install size for a mature, consistent, battle-tested platform compared to lighter-weight alternatives like Tauri.`,
     },
+    {
+      name: "Installing Electron & Project Setup",
+      minutes: 8,
+      intro: "Scaffold a bare Electron project from scratch: npm init, install Electron as a dev dependency, and understand what package.json's main field actually controls.",
+      content: `## Starting from an empty folder
+
+Unlike some frameworks, Electron doesn't require a special CLI to get going — it's just an npm package. Start the way you'd start any Node.js project:
+
+\`\`\`bash
+mkdir my-electron-app
+cd my-electron-app
+npm init -y
+\`\`\`
+
+That produces a minimal \`package.json\`. Electron itself is installed as a **dev dependency**, not a regular one — this matters and is easy to get backwards. Electron isn't a library your app *imports and calls*; it's a runtime binary that *runs* your app, similar to how \`vite\` or \`webpack\` are dev-time tools rather than something your shipped code depends on at runtime:
+
+\`\`\`bash
+npm install --save-dev electron
+\`\`\`
+
+This downloads a prebuilt Electron binary (bundling Chromium and Node.js as covered in the previous lesson) matched to your platform, plus the \`electron\` npm package that exposes the path to that binary so it can be launched from the command line or from npm scripts.
+
+## The \`main\` field: your app's entry point
+
+Open \`package.json\` and add a \`main\` field pointing at a JavaScript file:
+
+\`\`\`json
+{
+  "name": "my-electron-app",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
+\`\`\`
+
+\`main\` tells Electron which file to run as the **main process** the moment the app launches — it's the equivalent of a regular Node.js script's entry point, except Electron itself invokes it instead of you running \`node main.js\` directly. Running \`electron .\` (note the dot — "run the Electron app located in this directory") reads \`package.json\`, finds \`main\`, and executes that file inside Electron's bundled Node.js runtime, with the full \`electron\` API available to it via \`require("electron")\`.
+
+## A minimal project layout
+
+A small, real Electron project typically looks like this before any UI has been added:
+
+\`\`\`text
+my-electron-app/
+├── package.json
+├── main.js          ← the main process entry point (from "main" in package.json)
+├── preload.js        ← bridges main and renderer (Module 5 covers this in depth)
+└── index.html         ← the first page a window will load
+\`\`\`
+
+Nothing here is enforced by Electron beyond \`main\` pointing at a real file — file names and folder structure are entirely up to you, and larger projects usually organize \`main.js\`, \`preload.js\`, and renderer code into separate directories (\`src/main\`, \`src/preload\`, \`src/renderer\`) once the app grows past a single window. The next lesson fills in \`main.js\` with just enough code to open a real window.
+
+> **Key idea:** Electron is installed as a devDependency via npm, and \`package.json\`'s \`main\` field names the JavaScript file Electron runs as the main process on launch — running \`electron .\` in a folder is what actually starts the app using that entry point.`,
+    },
   ],
 }
