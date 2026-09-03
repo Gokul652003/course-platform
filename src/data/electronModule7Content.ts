@@ -128,5 +128,69 @@ Node offers both synchronous (\`fs.readFileSync\`) and asynchronous (\`fs.promis
 
 > **Key idea:** File I/O happens in the main process — never directly in a renderer — exposed through IPC handlers that should validate any renderer-supplied path (resolving it and confirming it stays inside an expected directory) exactly like a server would validate untrusted input, and should use async \`fs/promises\` calls rather than synchronous ones to avoid blocking the whole main process during disk I/O.`,
     },
+    {
+      name: "Drag & Drop and the Clipboard",
+      minutes: 8,
+      intro: "Accept dragged-in files using standard HTML5 drag-and-drop events, and read/write the system clipboard from the main process.",
+      content: `## Drag-and-drop is mostly ordinary web platform code
+
+Because a renderer is a real Chromium page, dragging a file from the OS's file manager onto a window fires the exact same \`dragover\`/\`drop\` DOM events a regular web page would receive — no Electron-specific API needed for the drag gesture itself:
+
+\`\`\`js
+// renderer.js
+const dropZone = document.getElementById("drop-zone")
+
+dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault() // required — without it, drop never fires
+})
+
+dropZone.addEventListener("drop", (event) => {
+  event.preventDefault()
+
+  for (const file of event.dataTransfer.files) {
+    console.log("Dropped file:", file.path, file.name, file.size)
+  }
+})
+\`\`\`
+
+The one Electron-specific detail: a dropped \`File\` object carries a \`path\` property (the file's absolute path on disk) that a browser's sandboxed \`File\` object never exposes — Electron adds it specifically because, unlike a web page, a renderer's dropped files are genuinely meant to be operated on by the app's (main-process, IPC-mediated) file-reading code from the previous lesson, using that real path.
+
+## Starting a drag from inside the app
+
+The reverse direction — a user dragging something *out* of your app's window onto the OS desktop or another application — needs an explicit main-process API, \`webContents.startDrag()\`, triggered from an IPC message the renderer sends on \`dragstart\`:
+
+\`\`\`js
+// main.js
+ipcMain.on("start-native-drag", (event, filePath) => {
+  event.sender.startDrag({
+    file: filePath,
+    icon: path.join(__dirname, "drag-icon.png"),
+  })
+})
+\`\`\`
+
+This pattern — an app-internal item (e.g. a note in a list) that a user can drag out onto their desktop as a real file — is a small but genuinely native-feeling touch that a pure web app has no way to offer at all.
+
+## The clipboard module
+
+Reading and writing the system clipboard is a main-process API, \`clipboard\`, exposed to the renderer through IPC/preload the same way everything else in this module has been:
+
+\`\`\`js
+// main.js
+const { clipboard, ipcMain } = require("electron")
+
+ipcMain.handle("clipboard:write", (event, text) => {
+  clipboard.writeText(text)
+})
+
+ipcMain.handle("clipboard:read", () => {
+  return clipboard.readText()
+})
+\`\`\`
+
+\`clipboard\` also supports \`writeHTML\`/\`readHTML\`, \`writeImage\`/\`readImage\`, and \`writeRTF\`/\`readRTF\` for richer clipboard content beyond plain text — useful for something like a "copy formatted table" feature — following the exact same read/write pattern shown above.
+
+> **Key idea:** Drag-and-drop *into* a window uses ordinary HTML5 \`dragover\`/\`drop\` events (Electron additionally exposes a real \`path\` on dropped files), dragging *out* of a window needs the explicit \`webContents.startDrag()\` main-process API, and clipboard access goes through the \`clipboard\` module — all following the same main-process-does-the-work, renderer-requests-via-IPC shape as every other native integration in this course.`,
+    },
   ],
 }
